@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.029.001.03" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<RsltnOfInvstgtn>
+
+		<Assgnmt>
+			<Id></Id>
+			<Assgnr>
+				<Agt>
+					<FinInstnId>
+						<BIC></BIC>
+					</FinInstnId>
+				</Agt>
+			</Assgnr>
+
+			<Assgne>
+				<Agt>
+					<FinInstnId>
+						<BIC></BIC>
+					</FinInstnId>
+				</Agt>
+			</Assgne>
+
+			<CreDtTm></CreDtTm>
+		</Assgnmt>
+
+		<Sts>
+			<Conf>RJCR</Conf>
+		</Sts>
+
+		<CxlDtls>
+			<TxInfAndSts>
+				<CxlStsId></CxlStsId>
+
+				<OrgnlGrpInf>
+					<OrgnlMsgId></OrgnlMsgId>
+					<OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
+				</OrgnlGrpInf>
+				<OrgnlInstrId></OrgnlInstrId>
+				<OrgnlEndToEndId></OrgnlEndToEndId>
+				<OrgnlTxId></OrgnlTxId>
+
+				<TxCxlSts>RJCR</TxCxlSts>
+
+				<CxlStsRsnInf>
+					<Orgtr>
+						<Id>
+							<OrgId>
+								<BICOrBEI></BICOrBEI>
+							</OrgId>
+						</Id>
+					</Orgtr>
+					<Rsn>
+						<Cd></Cd>
+					</Rsn>
+					<AddtlInf></AddtlInf>
+				</CxlStsRsnInf>
+
+				<OrgnlTxRef>
+					<IntrBkSttlmAmt Ccy="EUR"></IntrBkSttlmAmt>
+					<IntrBkSttlmDt></IntrBkSttlmDt>
+
+					<SttlmInf>
+						<SttlmMtd>CLRG</SttlmMtd>
+					</SttlmInf>
+
+					<PmtTpInf>
+						<SvcLvl>
+							<Cd>SEPA</Cd>
+						</SvcLvl>
+					</PmtTpInf>
+
+					<RmtInf>
+						<Ustrd></Ustrd>
+					</RmtInf>
+
+					<Dbtr>
+						<Nm></Nm>
+						<PstlAdr>
+							<Ctry></Ctry>
+							<AdrLine></AdrLine>
+							<AdrLine></AdrLine>
+						</PstlAdr>
+						<Id></Id>
+					</Dbtr>
+
+					<DbtrAcct>
+						<Id>
+							<IBAN></IBAN>
+						</Id>
+					</DbtrAcct>
+
+					<DbtrAgt>
+						<FinInstnId>
+							<BIC></BIC>
+						</FinInstnId>
+					</DbtrAgt>
+
+					<CdtrAgt>
+						<FinInstnId>
+							<BIC></BIC>
+						</FinInstnId>
+					</CdtrAgt>
+
+					<Cdtr>
+						<Nm></Nm>
+						<PstlAdr>
+							<Ctry></Ctry>
+							<AdrLine></AdrLine>
+							<AdrLine></AdrLine>
+						</PstlAdr>
+						<Id></Id>
+					</Cdtr>
+
+					<CdtrAcct>
+						<Id>
+							<IBAN></IBAN>
+						</Id>
+					</CdtrAcct>
+
+				</OrgnlTxRef>
+
+			</TxInfAndSts>
+		</CxlDtls>
+	</RsltnOfInvstgtn>
+</Document>

@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="urn:iso:std:iso:20022:tech:xsd:camt.029.001.08"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="urn:iso:std:iso:20022:tech:xsd:camt.029.001.08"
+    elementFormDefault="qualified">
+  <xs:element name="Document" type="Document_EPC115-06_SCT_IB_2019_V1.0"/>
+  <xs:simpleType name="BICFIIdentifier">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">BICFIIdentifier</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Code allocated to a financial institution by the ISO 9362 Registration Authority as described in ISO 9362 "Banking - Banking telecommunication messages - Business identifier code (BIC)".</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]{6,6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3,3}){0,1}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="BranchAndFinancialInstitutionIdentification5">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Branch And Financial Institution Identification 5</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Set of elements used to uniquely and unambiguously identify a financial institution or a branch of a financial institution.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="FinInstnId" type="FinancialInstitutionIdentification8">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Financial Institution Identification</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Unique and unambiguous identification of a financial institution, as assigned under an internationally recognised or proprietary identification scheme.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="BranchAndFinancialInstitutionIdentification5_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="BranchAndFinancialInstitutionIdentification5">
+        <xs:sequence>
+          <xs:element name="FinInstnId" type="FinancialInstitutionIdentification8_EPC115-06_SCT_IB_2019_V1.0"/>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Case4">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Case 4</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Provides further details to identify an investigation case.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="Id" type="Max35Text">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Identification</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Uniquely identifies the case.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Cretr" type="Party35Choice">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Creator</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Party that created the investigation case.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Case4_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="Case4">
+        <xs:sequence>
+          <xs:element name="Id" type="Max35Text">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Rulebook">AT-81 The specific SCT inquiry reference of the Participant initiating the SCT inquiry.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="Cretr" type="Party35Choice_EPC115-06_SCT_IB_2019_V1.0_2">
+            <xs:annotation>
+              <xs:documentation source="Usage Rule">Limited to BICFI to identify the Originator Bank of the original credit transfer.</xs:documentation>
+              <xs:documentation source="Yellow Field"/>
+            </xs:annotation>
+          </xs:element>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CaseAssignment4">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Case Assignment 4</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Represents the assignment of a case to a party.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="Id" type="Max35Text">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Identification</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Uniquely identifies the case assignment.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Assgnr" type="Party35Choice">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Assigner</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">
+Party who assigns the case. 
+Usage: This is also the sender of the message.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Assgne" type="Party35Choice">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Assignee</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">
+Party to which the case is assigned.
+Usage: This is also the receiver of the message.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CreDtTm" type="ISODateTime">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Creation Date Time</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Date and time at which the assignment was created.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CaseAssignment4_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="CaseAssignment4">
+        <xs:sequence>
+          <xs:element name="Id" type="Max35Text">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="Assgnr" type="Party35Choice_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Rulebook">Instructing Party.</xs:documentation>
+              <xs:documentation source="Usage Rule">Limited to BICFI to identify a bank, AnyBIC to identify a CSM or ‘Name’ to indicate the CSM when it has no BIC.</xs:documentation>
+              <xs:documentation source="Usage Rule">‘Name’ is limited to 70 characters in length.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="Assgne" type="Party35Choice_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Rulebook">Instructed Party.</xs:documentation>
+              <xs:documentation source="Usage Rule">Limited to BICFI to identify a bank, AnyBIC to identify a CSM or ‘Name’ to indicate the CSM when it has no BIC.</xs:documentation>
+              <xs:documentation source="Usage Rule">‘Name’ is limited to 70 characters in length.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="CreDtTm" type="ISODateTime">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+            </xs:annotation>
+          </xs:element>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ClaimNonReceipt1Choice">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Claim Non Receipt 1Choice</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Specifies whether the claim non receipt is accepted or rejected.</xs:documentation>
+    </xs:annotation>
+    <xs:choice>
+      <xs:element name="Rjctd" type="ClaimNonReceiptRejectReason1Choice">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Rejected</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Specifies that the claim non receipt has been rejected and provides the reason for the rejection.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="ClaimNonReceipt1Choice_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="ClaimNonReceipt1Choice">
+        <xs:choice>
+          <xs:element name="Rjctd" type="ClaimNonReceiptRejectReason1Choice">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Usage Rule">Only Code is allowed.</xs:documentation>
+              <xs:documentation source="Usage Rule">Only NOOR (No Original Transaction Received), RNPR (Original Transaction Received but Not Processable), ARJT (Already Rejected Transaction), ARDT (Already Returned Transaction) or RR04 (Regulatory Reason) are allowed.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:choice>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ClaimNonReceiptRejectReason1Choice">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Claim Non Receipt Reject Reason 1Choice</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Specifies the rejection reason of a claim non receipt.</xs:documentation>
+    </xs:annotation>
+    <xs:choice>
+      <xs:element name="Cd" type="ExternalClaimNonReceiptRejection1Code">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Code</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Reason for the rejection, in a coded form.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="Document">
+    <xs:sequence>
+      <xs:element name="RsltnOfInvstgtn" type="ResolutionOfInvestigationV08"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Document_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="Document">
+        <xs:sequence>
+          <xs:element name="RsltnOfInvstgtn" type="ResolutionOfInvestigationV08_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation xml:lang="EN" source="Definition">
+The ResolutionOfInvestigation message is sent by a case assignee to a case creator/case assigner.
+This message is used to inform of the resolution of a case, and optionally provides details about.
+- the corrective action undertaken by the case assignee
+- information on the return where applicable
+              </xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:simpleType name="ExternalClaimNonReceiptRejection1Code">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">External Claim Non Receipt Rejection 1Code</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">
+Specifies the reason for the rejection of a claim non receipt, as published in an external claim non receipt rejection code set.
+External code sets can be downloaded from www.iso20022.org.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="4"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ExternalInvestigationExecutionConfirmation1Code">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">External Investigation Execution Confirmation 1Code</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">
+Specifies the result of an investigation, as published in an external investigation execution confirmation code set.
+External code sets can be downloaded from www.iso20022.org.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="4"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ExternalInvestigationExecutionConfirmation1Code_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:restriction base="ExternalInvestigationExecutionConfirmation1Code">
+      <xs:enumeration value="RJNR">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">RejectedClaimNonReceipt</xs:documentation>
+        </xs:annotation>
+      </xs:enumeration>
+      <xs:minLength value="1"/>
+      <xs:maxLength value="4"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="FinancialInstitutionIdentification8">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Financial Institution Identification 8</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Set of elements used to identify a financial institution.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="BICFI" type="BICFIIdentifier" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">BICFI</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Code allocated to a financial institution by the ISO 9362 Registration Authority as described in ISO 9362 "Banking - Banking telecommunication messages - Business identifier code (BIC)".</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="FinancialInstitutionIdentification8_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="FinancialInstitutionIdentification8">
+        <xs:sequence>
+          <xs:element name="BICFI" type="BICFIIdentifier"/>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="InvestigationStatus4Choice">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Investigation Status 4Choice</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Specifies the status of an investigation case.</xs:documentation>
+    </xs:annotation>
+    <xs:choice>
+      <xs:element name="Conf" type="ExternalInvestigationExecutionConfirmation1Code">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Confirmation</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Specifies the status of the investigation, in a coded form.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="InvestigationStatus4Choice_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="InvestigationStatus4Choice">
+        <xs:choice>
+          <xs:element name="Conf" type="ExternalInvestigationExecutionConfirmation1Code_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Usage Rule">Only RJNR is allowed.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:choice>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:simpleType name="ISODateTime">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">ISODate Time</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">
+A particular point in the progression of time defined by a mandatory date and a mandatory time component, expressed in either UTC time format (YYYY-MM-DDThh:mm:ss.sssZ), local time with UTC offset format (YYYY-MM-DDThh:mm:ss.sss+/-hh:mm), or local time format (YYYY-MM-DDThh:mm:ss.sss). These representations are defined in "XML Schema Part 2: Datatypes Second Edition - W3C Recommendation 28 October 2004" which is aligned with ISO 8601.
+Note on the time format:
+1) beginning / end of calendar day
+00:00:00 = the beginning of a calendar day
+24:00:00 = the end of a calendar day
+2) fractions of second in time format
+Decimal fractions of seconds may be included. In this case, the involved parties shall agree on the maximum number of digits that are allowed.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:dateTime"/>
+  </xs:simpleType>
+  <xs:simpleType name="Max140Text">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Max 140Text</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Specifies a character string with a maximum length of 140 characters.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="140"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Max140Text_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:restriction base="Max140Text">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="70"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Max35Text">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Max 35Text</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Specifies a character string with a maximum length of 35 characters.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="35"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="OriginalGroupInformation29">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Original Group Information 29</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Unique and unambiguous identifier of the group of transactions as assigned by the original instructing party.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="OrgnlMsgId" type="Max35Text">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Original Message Identification</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Point to point reference assigned by the original instructing party to unambiguously identify the original message.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="OrgnlMsgNmId" type="Max35Text">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Original Message Name Identification</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Specifies the original message name identifier to which the message refers, eg, pacs.003.001.01 or MT103.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="OriginalGroupInformation29_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="OriginalGroupInformation29">
+        <xs:sequence>
+          <xs:element name="OrgnlMsgId" type="Max35Text">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="OrgnlMsgNmId" type="Max35Text">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Usage Rule">Only pacs.008.001.02 is allowed.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="OriginalTransactionReference27">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Original Transaction Reference 27</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Key elements used to refer the original transaction.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="DbtrAgt" type="BranchAndFinancialInstitutionIdentification5" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Debtor Agent</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Financial institution servicing an account for the debtor.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CdtrAgt" type="BranchAndFinancialInstitutionIdentification5" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Creditor Agent</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Financial institution servicing an account for the creditor.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="OriginalTransactionReference27_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="OriginalTransactionReference27">
+        <xs:sequence>
+          <xs:element name="DbtrAgt" type="BranchAndFinancialInstitutionIdentification5_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Rulebook">AT-06 The BIC code of the Originator Bank.</xs:documentation>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="CdtrAgt" type="BranchAndFinancialInstitutionIdentification5_EPC115-06_SCT_IB_2019_V1.0" minOccurs="0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Rulebook">AT-23 The BIC code of the Beneficiary Bank.</xs:documentation>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Party35Choice">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Party 35Choice</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Identification of a person, an organisation or a financial institution.</xs:documentation>
+    </xs:annotation>
+    <xs:choice>
+      <xs:element name="Pty" type="PartyIdentification125">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Party</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Identification of a person or an organisation.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Agt" type="BranchAndFinancialInstitutionIdentification5">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Agent</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Identification of a financial institution.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="Party35Choice_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="Party35Choice">
+        <xs:choice>
+          <xs:element name="Pty" type="PartyIdentification125_EPC115-06_SCT_IB_2019_V1.0"/>
+          <xs:element name="Agt" type="BranchAndFinancialInstitutionIdentification5_EPC115-06_SCT_IB_2019_V1.0"/>
+        </xs:choice>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Party35Choice_EPC115-06_SCT_IB_2019_V1.0_2">
+    <xs:complexContent>
+      <xs:restriction base="Party35Choice">
+        <xs:choice>
+          <xs:element name="Agt" type="BranchAndFinancialInstitutionIdentification5_EPC115-06_SCT_IB_2019_V1.0"/>
+        </xs:choice>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="PartyIdentification125">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Party Identification 125</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Set of elements used to identify a person or an organisation.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="Nm" type="Max140Text" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Name</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Name by which a party is known and which is usually used to identify that party.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="PartyIdentification125_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="PartyIdentification125">
+        <xs:sequence>
+          <xs:element name="Nm" type="Max140Text_EPC115-06_SCT_IB_2019_V1.0"/>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="PaymentTransaction90">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Payment Transaction 90</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">Provides further details on the reference and status on the original transactions, included in the original instruction, to which the cancellation request message applies.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="ModStsId" type="Max35Text" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Modification Status Identification</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">
+Unique and unambiguous identifier of a cancellation request status, as assigned by the assigner.
+
+Usage: The cancellation status identification can be used for reconciliation or to link tasks relating to the cancellation request.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="OrgnlGrpInf" type="OriginalGroupInformation29">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Original Group Information</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Provides information on the original message.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="OrgnlTxId" type="Max35Text" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Original Transaction Identification</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Unique identification, as assigned by the original first instructing agent, to unambiguously identify the transaction.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="OrgnlTxRef" type="OriginalTransactionReference27" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Original Transaction Reference</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Key elements used to identify the original transaction that is being referred to.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="PaymentTransaction90_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="PaymentTransaction90">
+        <xs:sequence>
+          <xs:element name="ModStsId" type="Max35Text">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="OrgnlGrpInf" type="OriginalGroupInformation29_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="OrgnlTxId" type="Max35Text">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation xml:lang="EN" source="Rulebook">AT-43 The Originator Bank’s reference of the SEPA Credit Transfer Transaction.</xs:documentation>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+              <xs:documentation source="Usage Rule">This information must be taken from the camt.027 and is used for allowing the Originator Bank to recognise the transaction.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="OrgnlTxRef" type="OriginalTransactionReference27_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+              <xs:documentation source="Usage Rule">Only Debtor Agent and Creditor Agent must be used.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ResolutionOfInvestigationV08">
+    <xs:annotation>
+      <xs:documentation xml:lang="EN" source="Name">Resolution Of Investigation V08</xs:documentation>
+      <xs:documentation xml:lang="EN" source="Definition">
+Scope
+The ResolutionOfInvestigation message is sent by a case assignee to a case creator/case assigner.
+This message is used to inform of the resolution of a case, and optionally provides details about.
+- the corrective action undertaken by the case assignee
+- information on the return where applicable
+Usage
+The ResolutionOfInvestigation message is used by the case assignee to inform a case creator or case assigner about the resolution of a:
+- request to cancel payment case
+- request to modify payment case
+- unable to apply case
+- claim non receipt case
+The ResolutionOfInvestigation message covers one and only one case at a time. If the case assignee needs to communicate about several cases, then several Resolution Of Investigation messages must be sent.
+The ResolutionOfInvestigation message provides:
+- the final outcome of the case, whether positive or negative
+- optionally, the details of the corrective action undertaken by the case assignee and the information of the return
+Whenever a payment instruction has been generated to solve the case under investigation following a claim non receipt or an unable to apply, the optional CorrectionTransaction component present in the message must be completed.
+Whenever the action of modifying or cancelling a payment results in funds being returned or reversed, an investigating agent may provide the details in the resolution related investigation component, to identify the return or reversal transaction. These details will facilitate the account reconciliations at the initiating bank and the intermediaries. It must be stressed that the return or reversal of funds is outside the scope of this Exceptions and Investigation service. The features given here is only meant to transmit the information of return or reversal when it is available through the resolution of the case.
+The ResolutionOfInvestigation message must:
+- be forwarded by all subsequent case assignee(s) until it reaches the case creator
+- not be used in place of a RejectCaseAssignment or CaseStatusReport or NotificationOfCaseAssignment message
+Take note of an exceptional rule that allows the use of ResolutionOfInvestigation in lieu of a CaseStatusReport. CaseStatusReport is a response-message to a CaseStatusReportRequest. The latter which is sent when the assigner has reached its own time-out threshold to receive a response. However it may happen that when the request arrives, the investigating agent has just obtained a resolution. In such a situation, it would be redundant to send a CaseStatusReport when then followed immediately by a ResolutionOfInvestigation. It is therefore quite acceptable for the investigating agent, the assignee, to skip the Case Status Report and send the ResolutionOfInvestigation message directly.
+The ResolutionOfInvestigation message should be the sole message to respond to a cancellation request. Details of the underlying transactions and the related statuses for which the cancellation request has been issued may be provided in the CancellationDetails component.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="Assgnmt" type="CaseAssignment4">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Assignment</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">
+Identifies the assignment of an investigation case from an assigner to an assignee.
+Usage: The Assigner must be the sender of this confirmation and the Assignee must be the receiver.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="RslvdCase" type="Case4" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Resolved Case</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Identifies a resolved case.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Sts" type="InvestigationStatus4Choice">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Status</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Indicates the status of the investigation.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ModDtls" type="PaymentTransaction90" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Modification Details</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Specifies the details of the underlying transaction being modified.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ClmNonRctDtls" type="ClaimNonReceipt1Choice" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation xml:lang="EN" source="Name">Claim Non Receipt Details</xs:documentation>
+          <xs:documentation xml:lang="EN" source="Definition">Specifies the details of the underlying transaction for which a claim non receipt has been initiated.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ResolutionOfInvestigationV08_EPC115-06_SCT_IB_2019_V1.0">
+    <xs:complexContent>
+      <xs:restriction base="ResolutionOfInvestigationV08">
+        <xs:sequence>
+          <xs:element name="Assgnmt" type="CaseAssignment4_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="RslvdCase" type="Case4_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+              <xs:documentation source="Yellow Field"/>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="Sts" type="InvestigationStatus4Choice_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Usage Rule">Only 'Confirmation' is allowed.</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="ModDtls" type="PaymentTransaction90_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+          <xs:element name="ClmNonRctDtls" type="ClaimNonReceipt1Choice_EPC115-06_SCT_IB_2019_V1.0">
+            <xs:annotation>
+              <xs:documentation source="Yellow Field"/>
+              <xs:documentation xml:lang="EN" source="Rulebook">AT-83 Non-receipt of the SEPA Credit Transfer/non-execution due to regulatory reason.</xs:documentation>
+              <xs:documentation source="Usage Rule">Mandatory</xs:documentation>
+            </xs:annotation>
+          </xs:element>
+        </xs:sequence>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>

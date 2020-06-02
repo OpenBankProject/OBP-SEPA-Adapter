@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.027.001.06" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<ClmNonRct>
+		<Assgnmt>
+			<Id></Id>
+
+			<Assgnr>
+				<Agt>
+					<FinInstnId>
+						<BICFI></BICFI>
+					</FinInstnId>
+				</Agt>
+			</Assgnr>
+
+			<Assgne>
+				<Agt>
+					<FinInstnId>
+						<BICFI></BICFI>
+					</FinInstnId>
+				</Agt>
+			</Assgne>
+
+			<CreDtTm></CreDtTm>
+		</Assgnmt>
+
+		<Case>
+			<Id></Id>
+			<Cretr>
+				<Pty>
+					<Nm></Nm>
+					<PstlAdr>
+						<Ctry></Ctry>
+						<AdrLine></AdrLine>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id></Id>
+				</Pty>
+			</Cretr>
+
+
+		</Case>
+		<Undrlyg>
+			<IntrBk>
+				<OrgnlGrpInf>
+					<OrgnlMsgId></OrgnlMsgId>
+					<OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
+				</OrgnlGrpInf>
+
+				<OrgnlInstrId></OrgnlInstrId>
+				<OrgnlEndToEndId></OrgnlEndToEndId>
+				<OrgnlTxId></OrgnlTxId>
+				<OrgnlIntrBkSttlmAmt Ccy="EUR"></OrgnlIntrBkSttlmAmt>
+				<OrgnlIntrBkSttlmDt></OrgnlIntrBkSttlmDt>
+				<OrgnlTxRef>
+					<SttlmInf>
+						<SttlmMtd>CLRG</SttlmMtd>
+					</SttlmInf>
+					<PmtTpInf>
+						<SvcLvl>
+							<Cd>SEPA</Cd>
+						</SvcLvl>
+					</PmtTpInf>
+
+					<RmtInf>
+						<Ustrd></Ustrd>
+					</RmtInf>
+
+					<Dbtr>
+						<Pty>
+							<Nm></Nm>
+							<PstlAdr>
+								<Ctry></Ctry>
+								<AdrLine></AdrLine>
+								<AdrLine></AdrLine>
+							</PstlAdr>
+							<Id></Id>
+						</Pty>
+					</Dbtr>
+
+					<DbtrAcct>
+						<Id>
+							<IBAN></IBAN>
+						</Id>
+					</DbtrAcct>
+
+					<DbtrAgt>
+						<FinInstnId>
+							<BICFI></BICFI>
+						</FinInstnId>
+					</DbtrAgt>
+
+					<CdtrAgt>
+						<FinInstnId>
+							<BICFI></BICFI>
+						</FinInstnId>
+					</CdtrAgt>
+
+					<Cdtr>
+						<Pty>
+							<Nm></Nm>
+							<PstlAdr>
+								<Ctry></Ctry>
+								<AdrLine></AdrLine>
+								<AdrLine></AdrLine>
+							</PstlAdr>
+							<Id></Id>
+						</Pty>
+					</Cdtr>
+
+					<CdtrAcct>
+						<Id>
+							<IBAN></IBAN>
+						</Id>
+					</CdtrAcct>
+					
+					<Purp>
+						<Cd></Cd>
+					</Purp>
+
+				</OrgnlTxRef>
+			</IntrBk>
+
+		</Undrlyg>
+
+		<InstrForAssgne>
+			<Cd>INQR</Cd>
+			<InstrInf></InstrInf>
+		</InstrForAssgne>
+
+	</ClmNonRct>
+</Document>

@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<CstmrCdtTrfInitn>
+		<GrpHdr>
+			<MsgId>SCT_OUT_2020-05-21_001</MsgId>
+			<CreDtTm>2020-05-21T12:07:34</CreDtTm>
+			<NbOfTxs>3</NbOfTxs>
+			<CtrlSum>22.58</CtrlSum>
+
+			<InitgPty>
+				<Nm>Louis Dupont</Nm>
+				<Id>
+					<PrvtId>
+						<DtAndPlcOfBirth>
+							<BirthDt>1982-03-14</BirthDt>
+							<CityOfBirth>Paris</CityOfBirth>
+							<CtryOfBirth>FR</CtryOfBirth>
+						</DtAndPlcOfBirth>
+					</PrvtId>
+				</Id>
+			</InitgPty>
+		</GrpHdr>
+
+		<PmtInf>
+
+			<PmtInfId>SCT_OUT_2020-05-21_001_0000001</PmtInfId>
+			<PmtMtd>TRF</PmtMtd>
+			<BtchBookg>false</BtchBookg>
+			<NbOfTxs>3</NbOfTxs>
+			<CtrlSum>22.58</CtrlSum>
+
+			<PmtTpInf>
+				<InstrPrty>NORM</InstrPrty>
+				<SvcLvl>
+					<Cd>SEPA</Cd>
+				</SvcLvl>
+				<LclInstrm>
+					<Cd>TRF</Cd>
+				</LclInstrm>
+			</PmtTpInf>
+
+			<ReqdExctnDt>2020-05-22</ReqdExctnDt>
+
+			<Dbtr>
+				<Nm>Louis Dupont</Nm>
+				<PstlAdr>
+					<PstCd>75000</PstCd>
+					<TwnNm>Paris</TwnNm>
+					<Ctry>FR</Ctry>
+					<AdrLine>3 rue des oliviers</AdrLine>
+				</PstlAdr>
+				<Id>
+					<PrvtId>
+						<DtAndPlcOfBirth>
+							<BirthDt>1982-03-14</BirthDt>
+							<CityOfBirth>Paris</CityOfBirth>
+							<CtryOfBirth>FR</CtryOfBirth>
+						</DtAndPlcOfBirth>
+					</PrvtId>
+				</Id>
+			</Dbtr>
+
+			<DbtrAcct>
+				<Id>
+					<IBAN>FR2917569000505791436388E88</IBAN>
+				</Id>
+				<Ccy>EUR</Ccy>
+			</DbtrAcct>
+
+			<DbtrAgt>
+				<FinInstnId>
+					<BIC>BNPAFRPP039</BIC>
+				</FinInstnId>
+			</DbtrAgt>
+
+			<ChrgBr>SLEV</ChrgBr>
+
+			<CdtTrfTxInf>
+				<PmtId>
+					<InstrId>SCT_OUT_2020-05-21_001_0000001_0001</InstrId>
+					<EndToEndId>SCT_OUT_2020-05-21_001_0000001_0001</EndToEndId>
+				</PmtId>
+				<PmtTpInf>
+					<SvcLvl>
+						<Cd>SEPA</Cd>
+					</SvcLvl>
+				</PmtTpInf>
+				<Amt>
+					<InstdAmt Ccy="EUR">5.34</InstdAmt>
+				</Amt>
+
+				<CdtrAgt>
+					<FinInstnId>
+						<BIC>INGBFRPPXXX</BIC>
+					</FinInstnId>
+				</CdtrAgt>
+
+				<Cdtr>
+					<Nm>Louis Dupont</Nm>
+					<PstlAdr>
+						<PstCd>75000</PstCd>
+	        			<TwnNm>Paris</TwnNm>
+						<Ctry>FR</Ctry>
+						<AdrLine>3 rue des oliviers</AdrLine>
+					</PstlAdr>
+				</Cdtr>
+
+				<CdtrAcct>
+					<Id>
+						<IBAN>FR4514508000702124742987J38</IBAN>
+					</Id>
+				</CdtrAcct>
+
+				<RmtInf>
+					<Ustrd>Wire transfer to myself</Ustrd>
+				</RmtInf>
+
+			</CdtTrfTxInf>
+
+			<CdtTrfTxInf>
+				<PmtId>
+					<InstrId>SCT_OUT_2020-05-21_001_0000001_0002</InstrId>
+					<EndToEndId>SCT_OUT_2020-05-21_001_0000001_0002</EndToEndId>
+				</PmtId>
+				<PmtTpInf>
+					<SvcLvl>
+						<Cd>SEPA</Cd>
+					</SvcLvl>
+				</PmtTpInf>
+				<Amt>
+					<InstdAmt Ccy="EUR">11.56</InstdAmt>
+				</Amt>
+
+				<CdtrAgt>
+					<FinInstnId>
+						<BIC>PSSTFRPPBOR</BIC>
+					</FinInstnId>
+				</CdtrAgt>
+
+				<Cdtr>
+					<Nm>Louis Durand</Nm>
+				</Cdtr>
+
+				<CdtrAcct>
+					<Id>
+						<IBAN>FR5212739000303813342455P34</IBAN>
+					</Id>
+				</CdtrAcct>
+
+				<RmtInf>
+					<Ustrd>Hello Louis, here is your refund for the restaurant</Ustrd>
+				</RmtInf>
+				
+			</CdtTrfTxInf>
+
+			<CdtTrfTxInf>
+				<PmtId>
+					<InstrId>SCT_OUT_2020-05-21_001_0000001_0003</InstrId>
+					<EndToEndId>SCT_OUT_2020-05-21_001_0000001_0003</EndToEndId>
+				</PmtId>
+				<PmtTpInf>
+					<SvcLvl>
+						<Cd>SEPA</Cd>
+					</SvcLvl>
+				</PmtTpInf>
+				<Amt>
+					<InstdAmt Ccy="EUR">5.68</InstdAmt>
+				</Amt>
+
+				<CdtrAgt>
+					<FinInstnId>
+						<BIC>NTSBDEB1XXX</BIC>
+					</FinInstnId>
+				</CdtrAgt>
+
+				<Cdtr>
+					<Nm>Alice Smith</Nm>
+					<PstlAdr>
+						<PstCd>79801</PstCd>
+	        			<TwnNm>Hohentengen</TwnNm>
+						<Ctry>DE</Ctry>
+						<AdrLine>Hedemannstasse 82</AdrLine>
+					</PstlAdr>
+				</Cdtr>
+
+				<CdtrAcct>
+					<Id>
+						<IBAN>DE32500105172247862778</IBAN>
+					</Id>
+				</CdtrAcct>
+
+				<RmtInf>
+					<Ustrd>Wire transfer to my german friend</Ustrd>
+				</RmtInf>
+				
+			</CdtTrfTxInf>
+
+		</PmtInf>
+
+	</CstmrCdtTrfInitn>
+
+</Document>

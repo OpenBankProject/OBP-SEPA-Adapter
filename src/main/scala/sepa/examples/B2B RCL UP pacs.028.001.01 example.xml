@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.028.001.01" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<FIToFIPmtStsReq>
+		<GrpHdr>
+			<MsgId></MsgId>
+			<CreDtTm></CreDtTm>
+
+			<InstgAgt>
+				<FinInstnId>
+					<BICFI></BICFI>
+				</FinInstnId>
+			</InstgAgt>
+
+			<InstdAgt>
+				<FinInstnId>
+					<BICFI></BICFI>
+				</FinInstnId>
+			</InstdAgt>
+		</GrpHdr>
+
+		<OrgnlGrpInf>
+			<OrgnlMsgId></OrgnlMsgId>
+			<OrgnlMsgNmId>camt.056.001.01</OrgnlMsgNmId>
+		</OrgnlGrpInf>
+
+		<TxInf>
+			<StsReqId></StsReqId>
+			<OrgnlInstrId></OrgnlInstrId>
+			<OrgnlEndToEndId></OrgnlEndToEndId>
+			<OrgnlTxId></OrgnlTxId>
+
+			<OrgnlTxRef>
+				<IntrBkSttlmAmt Ccy="EUR"></IntrBkSttlmAmt>
+				<IntrBkSttlmDt></IntrBkSttlmDt>
+
+				<SttlmInf>
+					<SttlmMtd>CLRG</SttlmMtd>
+				</SttlmInf>
+
+				<PmtTpInf>
+					<SvcLvl>
+						<Cd>SEPA</Cd>
+					</SvcLvl>
+				</PmtTpInf>
+
+				<RmtInf>
+					<Ustrd></Ustrd>
+				</RmtInf>
+
+				<Dbtr>
+					<Nm></Nm>
+					<PstlAdr>
+						<Ctry></Ctry>
+						<AdrLine></AdrLine>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id></Id>
+				</Dbtr>
+
+				<DbtrAcct>
+					<Id>
+						<IBAN></IBAN>
+					</Id>
+				</DbtrAcct>
+
+				<DbtrAgt>
+					<FinInstnId>
+						<BICFI></BICFI>
+					</FinInstnId>
+				</DbtrAgt>
+
+				<CdtrAgt>
+					<FinInstnId>
+						<BICFI></BICFI>
+					</FinInstnId>
+				</CdtrAgt>
+
+				<Cdtr>
+					<Nm></Nm>
+					<PstlAdr>
+						<Ctry></Ctry>
+						<AdrLine></AdrLine>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id></Id>
+				</Cdtr>
+
+				<CdtrAcct>
+					<Id>
+						<IBAN></IBAN>
+					</Id>
+				</CdtrAcct>
+
+			</OrgnlTxRef>
+		</TxInf>
+	</FIToFIPmtStsReq>
+</Document>

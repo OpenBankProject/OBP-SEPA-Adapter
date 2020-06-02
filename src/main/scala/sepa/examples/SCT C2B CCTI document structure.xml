@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<CstmrCdtTrfInitn>
+		<GrpHdr>
+			<MsgId></MsgId>
+			<CreDtTm></CreDtTm>
+			<NbOfTxs></NbOfTxs>
+			<CtrlSum></CtrlSum>
+
+			<InitgPty>
+				<Nm></Nm>
+				<Id>
+					<xs:choice>
+						<OrgId></OrgId>
+						<PrvtId></PrvtId>
+					</xs:choice>
+				</Id>
+			</InitgPty>
+		</GrpHdr>
+
+		<PmtInf> #n
+			<PmtInfId></PmtInfId>
+			<PmtMtd>TRF</PmtMtd>
+			<BtchBookg></BtchBookg>
+			<NbOfTxs></NbOfTxs>
+			<CtrlSum></CtrlSum>
+			<PmtTpInf>
+				<InstrPrty></InstrPrty>
+				<SvcLvl>
+					<Cd>SEPA</Cd>
+				</SvcLvl>
+				<LclInstrm>
+					<xs:choice>
+						<Cd></Cd>
+						<Prtry></Prtry>
+					</xs:choice>
+				</LclInstrm>
+				<CtgyPurp></CtgyPurp>
+			</PmtTpInf>
+			<ReqdExctnDt></ReqdExctnDt>
+			<Dbtr>
+				<Nm></Nm>
+				<PstlAdr>
+					<CountryCode></CountryCode>
+					<AdrLine></AdrLine>
+				</PstlAdr>
+				<Id>
+					<xs:choice>
+						<OrgId></OrgId>
+						<PrvtId></PrvtId>
+					</xs:choice>
+				</Id>
+			</Dbtr>
+
+			<DbtrAcct>
+				<Id></Id>
+				<Ccy>EUR</Ccy>
+			</DbtrAcct>
+
+			<DbtrAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</DbtrAgt>
+
+			<UltmtDbtr>
+				<Nm></Nm>
+				<Id>
+					<xs:choice>
+						<OrgId></OrgId>
+						<PrvtId></PrvtId>
+					</xs:choice>
+				</Id>
+			</UltmtDbtr>
+
+			<ChrgBr>SLEV</ChrgBr>
+
+			<CdtTrfTxInf> #n
+				<PmtId>
+					<InstrId></InstrId>
+					<EndToEndId></EndToEndId>
+				</PmtId>
+				<PmtTpInf>
+					<SvcLvl>
+						<Cd>SEPA</Cd>
+					</SvcLvl>
+					<LclInstrm>
+						<xs:choice>
+							<Cd></Cd>
+							<Prtry></Prtry>
+						</xs:choice>
+					</LclInstrm>
+					<CtgyPurp></CtgyPurp>
+				</PmtTpInf>
+				<Amt>
+					<InstdAmt></InstdAmt>
+				</Amt>
+
+				<ChrgBr>SLEV</ChrgBr>
+
+				<UltmtDbtr>
+					<Nm></Nm>
+					<Id>
+						<xs:choice>
+							<OrgId></OrgId>
+							<PrvtId></PrvtId>
+						</xs:choice>
+					</Id>
+				</UltmtDbtr>
+
+				<CdtrAgt></CdtrAgt>
+
+				<Cdtr>
+					<Nm></Nm>
+					<PstlAdr>
+						<CountryCode></CountryCode>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id>
+						<xs:choice>
+							<OrgId></OrgId>
+							<PrvtId></PrvtId>
+						</xs:choice>
+					</Id>
+				</Cdtr>
+
+				<CdtrAcct></CdtrAcct>
+
+				<UltmtCdtr>
+					<Nm></Nm>
+					<Id>
+						<xs:choice>
+							<OrgId></OrgId>
+							<PrvtId></PrvtId>
+						</xs:choice>
+					</Id>
+				</UltmtCdtr>
+
+				<Purp>
+					<Cd></Cd>
+				</Purp>
+
+				<RmtInf>
+					<Ustrd></Ustrd>
+					<Strd>
+						<CdtrRefInf>
+							<Tp>
+								<CdOrPrtry>
+									<xs:choice>
+										<Cd>SCOR</Cd>
+										<Issuer></Issuer>
+									</xs:choice>
+								</CdOrPrtry>
+							</Tp>
+							<Ref></Ref>
+						</CdtrRefInf>
+					</Strd>
+				</RmtInf>
+
+
+			</CdtTrfTxInf>
+
+		</PmtInf>
+
+	</CstmrCdtTrfInitn>
+
+</Document>

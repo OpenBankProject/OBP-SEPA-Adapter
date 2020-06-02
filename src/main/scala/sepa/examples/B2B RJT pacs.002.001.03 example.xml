@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.002.001.03" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<FIToFIPmtStsRpt>
+		<GrpHdr>
+			<MsgId></MsgId>
+			<CreDtTm></CreDtTm>
+
+			<InstgAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</InstgAgt>
+
+			<InstdAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</InstdAgt>
+		</GrpHdr>
+
+		<OrgnlGrpInfAndSts>
+			<OrgnlMsgId></OrgnlMsgId>
+			<OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
+
+			<GrpSts>RJCT</GrpSts>
+			<StsRsnInf>
+				<Orgtr></Orgtr>
+				<Rsn>
+					<Cd></Cd>
+				</Rsn>
+			</StsRsnInf>
+		</OrgnlGrpInfAndSts>
+		
+		<TxInfAndSts>
+			<StsId></StsId>
+			<OrgnlInstrId></OrgnlInstrId>
+			<OrgnlEndToEndId></OrgnlEndToEndId>
+			<OrgnlTxId></OrgnlTxId>
+
+			<TxSts>RJCT</TxSts>
+
+			<StsRsnInf>
+				<Orgtr></Orgtr>
+				<Rsn>
+					<Cd></Cd>
+				</Rsn>
+			</StsRsnInf>
+
+			<OrgnlTxRef>
+				<IntrBkSttlmAmt Ccy="EUR"></IntrBkSttlmAmt>
+				<IntrBkSttlmDt></IntrBkSttlmDt>
+
+				<SttlmInf>
+					<SttlmMtd>CLRG</SttlmMtd>
+				</SttlmInf>
+
+				<PmtTpInf>
+					<SvcLvl>
+						<Cd>SEPA</Cd>
+					</SvcLvl>
+				</PmtTpInf>
+
+				<RmtInf>
+					<Ustrd></Ustrd>
+				</RmtInf>
+
+				<Dbtr>
+					<Nm></Nm>
+					<PstlAdr>
+						<Ctry></Ctry>
+						<AdrLine></AdrLine>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id></Id>
+				</Dbtr>
+
+				<DbtrAcct>
+					<Id>
+						<IBAN></IBAN>
+					</Id>
+				</DbtrAcct>
+
+				<DbtrAgt>
+					<FinInstnId>
+						<BIC></BIC>
+					</FinInstnId>
+				</DbtrAgt>
+
+				<CdtrAgt>
+					<FinInstnId>
+						<BIC></BIC>
+					</FinInstnId>
+				</CdtrAgt>
+
+				<Cdtr>
+					<Nm></Nm>
+					<PstlAdr>
+						<Ctry></Ctry>
+						<AdrLine></AdrLine>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id></Id>
+				</Cdtr>
+
+				<CdtrAcct>
+					<Id>
+						<IBAN></IBAN>
+					</Id>
+				</CdtrAcct>
+
+			</OrgnlTxRef>
+		</TxInfAndSts>
+
+		<TxInfAndSts>
+			<StsId></StsId>
+			<OrgnlInstrId></OrgnlInstrId>
+			<OrgnlEndToEndId></OrgnlEndToEndId>
+			<OrgnlTxId></OrgnlTxId>
+
+			<TxSts>RJCT</TxSts>
+
+			<StsRsnInf>
+				<Orgtr></Orgtr>
+				<Rsn>
+					<Cd></Cd>
+				</Rsn>
+			</StsRsnInf>
+
+			<OrgnlTxRef>
+				<IntrBkSttlmAmt Ccy="EUR"></IntrBkSttlmAmt>
+				<IntrBkSttlmDt></IntrBkSttlmDt>
+
+				<SttlmInf>
+					<SttlmMtd>CLRG</SttlmMtd>
+				</SttlmInf>
+
+				<PmtTpInf>
+					<SvcLvl>
+						<Cd>SEPA</Cd>
+					</SvcLvl>
+				</PmtTpInf>
+
+				<RmtInf>
+					<Ustrd></Ustrd>
+				</RmtInf>
+
+				<Dbtr>
+					<Nm></Nm>
+					<PstlAdr>
+						<Ctry></Ctry>
+						<AdrLine></AdrLine>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id></Id>
+				</Dbtr>
+
+				<DbtrAcct>
+					<Id>
+						<IBAN></IBAN>
+					</Id>
+				</DbtrAcct>
+
+				<DbtrAgt>
+					<FinInstnId>
+						<BIC></BIC>
+					</FinInstnId>
+				</DbtrAgt>
+
+				<CdtrAgt>
+					<FinInstnId>
+						<BIC></BIC>
+					</FinInstnId>
+				</CdtrAgt>
+
+				<Cdtr>
+					<Nm></Nm>
+					<PstlAdr>
+						<Ctry></Ctry>
+						<AdrLine></AdrLine>
+						<AdrLine></AdrLine>
+					</PstlAdr>
+					<Id></Id>
+				</Cdtr>
+
+				<CdtrAcct>
+					<Id>
+						<IBAN></IBAN>
+					</Id>
+				</CdtrAcct>
+
+			</OrgnlTxRef>
+		</TxInfAndSts>
+
+	</FIToFIPmtStsRpt>
+
+</Document>

@@ -12,3 +12,10 @@ libraryDependencies ++= Seq(
   "com.chuusai" %% "shapeless" % "2.3.3",
   "io.underscore" %% "slickless" % "0.3.6"
 )
+
+libraryDependencies ++= Seq(
+  "org.scala-lang.modules" %% "scala-xml" % "2.0.0-M1",
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
+)
+
+lazy val root = (project in file(".")).enablePlugins(ScalaxbPlugin)

@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<FIToFICstmrCdtTrf>
+		<GrpHdr>
+			<MsgId>SCT_OUT_2020-05-21_001</MsgId>
+			<CreDtTm>2020-05-21T12:07:34</CreDtTm>
+
+			<NbOfTxs>3</NbOfTxs>
+
+			<TtlIntrBkSttlmAmt Ccy="EUR">22.58</TtlIntrBkSttlmAmt>
+			<IntrBkSttlmDt>2020-06-21</IntrBkSttlmDt>
+			<SttlmInf>
+				<SttlmMtd>CLRG</SttlmMtd>
+				<SttlmAcct>
+					<Id>
+						<IBAN></IBAN>
+					</Id>
+				</SttlmAcct>
+				<ClrSys></ClrSys>
+			</SttlmInf>
+
+			<PmtTpInf>
+				<SvcLvl>
+					<Cd>SEPA</Cd>
+				</SvcLvl>
+			</PmtTpInf>
+
+			<InstgAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</InstgAgt>
+
+			<InstdAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</InstdAgt>
+
+		</GrpHdr>
+
+		<CdtTrfTxInf>
+			<PmtId>
+				<InstrId></InstrId>
+				<EndToEndId></EndToEndId>
+				<TxId></TxId>
+			</PmtId>
+
+			<IntrBkSttlmAmt Ccy="EUR"></IntrBkSttlmAmt>
+
+			<ChrgBr>SLEV</ChrgBr>
+
+			<Dbtr>
+				<Nm></Nm>
+				<PstlAdr>
+					<Ctry></Ctry>
+					<AdrLine></AdrLine>
+					<AdrLine></AdrLine>
+				</PstlAdr>
+				<Id></Id>
+			</Dbtr>
+
+			<DbtrAcct>
+				<Id>
+					<IBAN></IBAN>
+				</Id>
+			</DbtrAcct>
+			
+			<DbtrAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</DbtrAgt>
+
+			<CdtrAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</CdtrAgt>
+
+			<Cdtr>
+				<Nm></Nm>
+				<PstlAdr>
+					<Ctry></Ctry>
+					<AdrLine></AdrLine>
+					<AdrLine></AdrLine>
+				</PstlAdr>
+				<Id></Id>
+			</Cdtr>
+
+			<CdtrAcct>
+				<Id>
+					<IBAN></IBAN>
+				</Id>
+			</CdtrAcct>
+			
+			<Purp>
+				<Cd></Cd>
+			</Purp>
+
+			<RmtInf>
+				<Ustrd></Ustrd>
+			</RmtInf>
+
+		</CdtTrfTxInf>
+
+		<CdtTrfTxInf>
+			<PmtId>
+				<InstrId></InstrId>
+				<EndToEndId></EndToEndId>
+				<TxId></TxId>
+			</PmtId>
+
+			<IntrBkSttlmAmt Ccy="EUR"></IntrBkSttlmAmt>
+
+			<ChrgBr>SLEV</ChrgBr>
+
+			<Dbtr>
+				<Nm></Nm>
+				<PstlAdr>
+					<Ctry></Ctry>
+					<AdrLine></AdrLine>
+					<AdrLine></AdrLine>
+				</PstlAdr>
+				<Id></Id>
+			</Dbtr>
+
+			<DbtrAcct>
+				<Id>
+					<IBAN></IBAN>
+				</Id>
+			</DbtrAcct>
+
+			<DbtrAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</DbtrAgt>
+
+			<CdtrAgt>
+				<FinInstnId>
+					<BIC></BIC>
+				</FinInstnId>
+			</CdtrAgt>
+
+			<Cdtr>
+				<Nm></Nm>
+				<PstlAdr>
+					<Ctry></Ctry>
+					<AdrLine></AdrLine>
+					<AdrLine></AdrLine>
+				</PstlAdr>
+				<Id></Id>
+			</Cdtr>
+
+			<CdtrAcct>
+				<Id>
+					<IBAN></IBAN>
+				</Id>
+			</CdtrAcct>
+
+			<Purp>
+				<Cd></Cd>
+			</Purp>
+
+			<RmtInf>
+				<Ustrd></Ustrd>
+			</RmtInf>
+
+		</CdtTrfTxInf>
+
+	</FIToFICstmrCdtTrf>
+
+</Document>
