@@ -26,19 +26,15 @@
 		<Case>
 			<Id></Id>
 			<Cretr>
-				<Pty>
-					<Nm></Nm>
-					<PstlAdr>
-						<Ctry></Ctry>
-						<AdrLine></AdrLine>
-						<AdrLine></AdrLine>
-					</PstlAdr>
-					<Id></Id>
-				</Pty>
+				<Agt>
+					<FinInstnId>
+						<BICFI></BICFI>
+					</FinInstnId>
+				</Agt>
 			</Cretr>
 
-
 		</Case>
+
 		<Undrlyg>
 			<IntrBk>
 				<OrgnlGrpInf>

@@ -1,0 +1,506 @@
+swagger: "2.0"
+info:
+  description: "This is the description of the OBP integrated Core Banking System"
+  version: "1.0.0"
+  title: "OBP Core SEPA"
+  contact:
+    name: "TESOBE GmbH"
+    email: "contact@openbankproject.com"
+    url: "https://www.openbankproject.com/"
+
+host: "api.openbankproject.com"
+basePath: "/obp/v4.0.0"
+
+tags:
+- name: "SCT"
+  description: "SEPA Credit Transfer"
+- name: "SDD"
+  description: "SEPA Direct Debit"
+- name: "SCT Inst "
+  description: "SEPA Credit Transfer Instant"
+  
+schemes:
+- "https"
+- "http"
+
+paths:
+  /sct/transfer/banks/{bankId}/accounts/{accountId}/{viewId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Create a new SEPA transfer request"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bank id that send the transaction"
+        in: "path"
+        required: true
+        type: string
+      - name: "accountId"
+        description: "The account id that send the transaction"
+        in: "path"
+        required: true
+        type: string
+      - name: "viewId"
+        in: "path"
+        required: true
+        type: string
+      - in: "body"
+        name: "body"
+        description: "The transaction description"
+        required: true
+        schema:
+          $ref: "#/definitions/SCTTransfer"
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+      
+  /sct/return/banks/{bankId}/transactions/{transactionId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Return a SEPA transaction"
+      description: "
+        Reason codes availables :
+      
+      - **AC01** : IncorrectAccountNumber : Account identifier invalid (i.e. invalid IBAN or account number does not exist)
+      
+      - **AC04** : ClosedAccountNumber : Account closed
+      
+      - **AC06** : BlockedAccount : Account blocked, reason not specified
+      
+      - **AG01** : TransactionForbidden : Credit transfer forbidden on this type of account (e.g. savings account)
+      
+      - **AG02** : InvalidBankOperationCode : Operation/transaction code incorrect, invalid file format
+      
+      - **AM05** : Duplication : Duplicate payment
+      
+      - **BE04** : MissingCreditorAddress : Account address invalid
+      
+      - **CNOR** : Creditor bank is not registered : Creditor bank is not registered under this BIC in the CSM
+      
+      - **ERIN** : ERIOptionNotSupported : The Extended Remittance Information (ERI) option is not supported
+      
+      - **MD07** : EndCustomerDeceased : Beneficiary deceased
+      
+      - **MS02** : NotSpecifiedReasonCustomerGenerated : By order of the Beneficiary
+      
+      - **MS03** : NotSpecifiedReasonAgentGenerated : Reason not specified
+      
+      - **RC01** : BankIdentifierIncorrect : Bank identifier incorrect, eg, invalid BIC
+      
+      - **RR01** : MissingDebtorAccountOrIdentification : Regulatory Reason
+      
+      - **RR02** : MissingDebtorsNameOrAddress : Regulatory Reason
+      
+      - **RR03** : MissingCreditorsNameOrAddress : Regulatory Reason
+      
+      - **RR04** : RegulatoryReason : Regulatory Reason
+      "
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bankId that return the transaction"
+        in: "path"
+        required: true
+        type: string
+      - name: "transactionId"
+        description: "The initial transactionId to return"
+        in: "path"
+        required: true
+        type: string
+      - in: "body"
+        name: "body"
+        description: "The return description"
+        required: true
+        schema:
+          $ref: "#/definitions/SCTReturn"
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+      
+  /sct/recall/banks/{bankId}/transactions/{transactionId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Recall a SEPA transaction"
+      description: "
+        Reason codes availables :
+      
+        - **DUPL** : Duplicate Sending
+        
+        - **TECH** : Technical problems resulting in erroneous
+        
+        - **FRAD** : Fraudulent originated SEPA Credit
+        
+        - **CUST** : Requested by Customer By request of the Originator without any reason specified
+
+        - **AM09** : Wrong Amount
+        
+        - **AC03** : Invalid Creditor Account Number : Wrong unique identifier of the Beneficiary account
+      "
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bankId that recall the transaction"
+        in: "path"
+        required: true
+        type: string
+      - name: "transactionId"
+        description: "The initial transactionId to recall"
+        in: "path"
+        required: true
+        type: string
+      - in: "body"
+        name: "body"
+        description: "The recall description"
+        required: true
+        schema:
+          $ref: "#/definitions/SCTRecall"
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+      
+  /sct/recall-reject/banks/{bankId}/recalls/{recallId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Reject a recall request"
+      description: "
+        Reason codes availables :
+        
+        - **CUST** : CustomerDecision : Beneficiary’s Refusal
+        
+        - **LEGL** : LegalDecision : Legal reasons
+        
+        - **ARDT** : The transaction has already been returned
+        
+        - **AC04** : ClosedAccountNumber : Account closed
+        
+        - **AM04** : InsufficientFunds : Insufficient funds on the account
+        
+        - **NOAS** : NoAnswerFromCustomer : No response from Beneficiary
+        
+        - **NOOR** : NoOriginalTransactionReceived : Initial SEPA Credit Transfer Transaction never received
+      "
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bankId that reject the recall"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "recallId"
+        description: "The initial recallId"
+        in: "path"
+        required: true
+        type: string
+      - in: "body"
+        name: "body"
+        description: "The recall reject description"
+        required: true
+        schema:
+          $ref: "#/definitions/SCTRecallReject"
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+      
+  /sct/inquiry-claim-non-receipt/banks/{bankId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Send a claim of non-receipt"
+      description: "**WARNING : Some mandatory IDs could be unknow**"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bankId who send the claim of non-receipt"
+        in: "path"
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "The claim of non receipt description"
+        required: true
+        schema:
+          $ref: "#/definitions/SCTInquiryClaimNonReceipt"
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+  
+  /sct/inquiry-value-date-correction/banks/{bankId}/transactions/{transactionId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Send a claim for value date correction"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bankId who send the claim for value date correction"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "transactionId"
+        description: "The initial transactionId which value date need to be corrected"
+        in: "path"
+        required: true
+        type: string
+      - in: "body"
+        name: "body"
+        description: "The claim for value date correction description"
+        required: true
+        schema:
+          $ref: "#/definitions/SCTInquiryClaimValueDateCorrection"
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+      
+  /sct/inquiry-response/banks/{bankId}/messages/{messageId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Send an inquiry response"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bankId who send the inquiry response"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "messageId"
+        description: "The initial messageId related to the inquiry response"
+        in: "path"
+        required: true
+        type: string
+      - in: "body"
+        name: "body"
+        description: "The inquiry response description"
+        required: true
+        schema:
+          $ref: "#/definitions/SCTInquiryResponse"
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+      
+  /sct/status-update/banks/{bankId}/messages/{messageId}:
+    post:
+      tags:
+      - "SCT"
+      summary: "Send a status update on a recall or inquiry"
+      description: "**TODO**"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "bankId"
+        description: "The bankId who send the status update"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "messageId"
+        description: "The initial messageId (recall or inquiry) on which we request an update"
+        in: "path"
+        required: true
+        type: string
+      responses:
+        "200":
+          description: "Success"
+      security:
+      - obp_auth: []
+    
+    
+securityDefinitions:
+  obp_auth:
+    type: "basic"
+
+
+definitions:
+  SCTTransfer:
+    type: "object"
+    properties:
+      value:
+        type: "object"
+        properties:
+          currency:
+            type: "string"
+            maxLength: 3
+            default: "EUR"
+          amount:
+            type: "number"
+      to:
+        type: "object"
+        properties:
+          name:
+            type: "string"
+            maxLength: 140
+          account:
+            type: "object"
+            properties:
+              iban:
+                type: "string"
+                maxLength: 34
+              bic:
+                type: "string"
+                maxLength: 11
+      description:
+        type: "string"
+        maxLength: 140
+        
+  SCTReturn:
+    type: "object"
+    properties:
+      originator:
+        type: "object"
+        properties:
+          name:
+            type: "string"
+            maxLength: 140
+          bic:
+            type: "string"
+            maxLength: 11
+      reasonCode:
+        type: "string"
+        maxLength: 4
+      
+  SCTRecall:
+    type: "object"
+    properties:
+      originator:
+        type: "object"
+        properties:
+          name:
+            type: "string"
+            maxLength: 140
+          bic:
+            type: "string"
+            maxLength: 11
+      reasonCode:
+        type: "string"
+        maxLength: 4
+      additionalInformation:
+        type: "string"
+        maxLength: 105
+        
+  SCTRecallReject:
+    type: "object"
+    properties:
+      originator:
+        type: "object"
+        properties:
+          name:
+            type: "string"
+            maxLength: 140
+          bic:
+            type: "string"
+            maxLength: 11
+      reasonCode:
+        type: "string"
+        maxLength: 4
+      additionalInformation:
+        type: "string"
+        maxLength: 105
+        
+  SCTInquiryClaimNonReceipt:
+    type: "object"
+    properties:
+      originalTransaction:
+        type: "object"
+        properties:
+          id:
+            type: "string"
+          creditor:
+            type: "object"
+            properties:
+              name:
+                type: "string"
+                maxLength: 140
+              account:
+                type: "object"
+                properties:
+                  iban:
+                    type: "string"
+                    maxLength: 34
+                  bic:
+                    type: "string"
+                    maxLength: 11
+          debtor:
+            type: "object"
+            properties:
+              name:
+                type: "string"
+                maxLength: 140
+              account:
+                type: "object"
+                properties:
+                  iban:
+                    type: "string"
+                    maxLength: 34
+                  bic:
+                    type: "string"
+                    maxLength: 11
+          amount:
+            type: number
+          description:
+            type: "string"
+      additionalInformation:
+        type: "string"
+        maxLength: 105
+        
+  SCTInquiryClaimValueDateCorrection:
+    type: "object"
+    properties:
+      newDate:
+        type: "string"
+      additionalInformation:
+        type: "string"
+        maxLength: 105
+        
+  SCTInquiryResponse:
+    type: "object"
+    properties:
+      responseType:
+        type: "string"
+        enum: 
+          - "positive"
+          - "negative"
+
+
+externalDocs:
+  description: "OBP API Explorer"
+  url: "https://apiexplorer.openbankproject.com/"
