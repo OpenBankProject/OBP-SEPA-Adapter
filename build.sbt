@@ -13,9 +13,16 @@ libraryDependencies ++= Seq(
   "io.underscore" %% "slickless" % "0.3.6"
 )
 
+lazy val commonSettings = Seq(
+  version := "0.1",
+  organization := "com.tesobe",
+  scalaVersion := "2.13.2"
+)
+
 libraryDependencies ++= Seq(
   "org.scala-lang.modules" %% "scala-xml" % "2.0.0-M1",
-  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
+  "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
+  "javax.xml.bind" % "jaxb-api" % "2.3.1"
 )
 
 lazy val root = (project in file(".")).enablePlugins(ScalaxbPlugin)

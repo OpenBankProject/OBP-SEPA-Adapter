@@ -1,0 +1,72 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02"
+          xmlns:tns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <FIToFICstmrCdtTrf>
+        <GrpHdr>
+            <MsgId>0b43c94be28a43b2b1097f0ff3d1e322</MsgId>
+            <CreDtTm>2020-05-21T12:07:34.000+00:02</CreDtTm>
+            <NbOfTxs>3</NbOfTxs>
+            <TtlIntrBkSttlmAmt Ccy="EUR">25.3</TtlIntrBkSttlmAmt>
+            <IntrBkSttlmDt>2020-05-22</IntrBkSttlmDt>
+            <SttlmInf>
+                <SttlmMtd>CLRG</SttlmMtd>
+            </SttlmInf>
+            <PmtTpInf>
+                <SvcLvl>
+                    <Cd>SEPA</Cd>
+                </SvcLvl>
+            </PmtTpInf>
+            <InstgAgt>
+                <FinInstnId>
+                    <BIC>DEUTDEBB</BIC>
+                </FinInstnId>
+            </InstgAgt>
+            <InstdAgt>
+                <FinInstnId>
+                    <BIC>DEUTDEBB</BIC>
+                </FinInstnId>
+            </InstdAgt>
+        </GrpHdr>
+        <CdtTrfTxInf>
+            <PmtId>
+                <EndToEndId>ID HERE</EndToEndId>
+                <TxId>ID HERE</TxId>
+            </PmtId>
+            <IntrBkSttlmAmt Ccy="EUR">25.3</IntrBkSttlmAmt>
+            <ChrgBr>SLEV</ChrgBr>
+            <Dbtr>
+                <Nm>Name of the debtor</Nm>
+            </Dbtr>
+            <DbtrAcct>
+                <Id>
+                    <IBAN>DE08500105171159766486</IBAN>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId>
+                    <BIC>DEUTDEBB</BIC>
+                </FinInstnId>
+            </DbtrAgt>
+            <CdtrAgt>
+                <FinInstnId>
+                    <BIC>DEUTDEBB</BIC>
+                </FinInstnId>
+            </CdtrAgt>
+            <Cdtr>
+                <Nm>Name of the creditor</Nm>
+            </Cdtr>
+            <CdtrAcct>
+                <Id>
+                    <IBAN>DE33500105176966528834</IBAN>
+                </Id>
+            </CdtrAcct>
+            <Purp>
+                <Cd>RENT</Cd>
+            </Purp>
+            <RmtInf>
+                <Ustrd>Some information about the payment here</Ustrd>
+            </RmtInf>
+        </CdtTrfTxInf>
+    </FIToFICstmrCdtTrf>
+</Document>
