@@ -1,765 +1,704 @@
-swagger: "2.0"
+openapi: 3.0.3
 info:
-  description: "This is the description of the OBP integrated Core Banking System"
-  version: "1.0.0"
-  title: "OBP Core SEPA"
+  description: This is the description of the OBP integrated Core Banking System
+  version: 1.0.0
+  title: OBP Core SEPA
   contact:
-    name: "TESOBE GmbH"
-    email: "contact@openbankproject.com"
-    url: "https://www.openbankproject.com/"
+    name: TESOBE GmbH
+    email: contact@openbankproject.com
+    url: https://www.openbankproject.com
 
-host: "api.openbankproject.com"
-basePath: "/obp/v4.0.0/core"
+servers:
+  - url: https://api.openbankproject.com/obp/v4.0.0/core
+  - url: http://localhost:8080/obp/v4.0.0/core
 
 tags:
-  - name: "SCT"
-    description: "SEPA Credit Transfer"
-  - name: "SDD"
-    description: "SEPA Direct Debit"
-  - name: "SCT Inst"
-    description: "SEPA Credit Transfer Instant"
-
-schemes:
-  - "https"
-  - "http"
+  - name: SCT
+    description: SEPA Credit Transfer
+  - name: SDD
+    description: SEPA Direct Debit
+  - name: SCT Inst
+    description: SEPA Credit Transfer Instant
 
 paths:
   /sct/transfer/banks/{bankId}/accounts/{accountId}/{viewId}:
     post:
       tags:
-        - "SCT"
-      summary: "Create a new SEPA transfer request"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
+        - SCT
+      summary: Create a new SEPA transfer request
       parameters:
-        - name: "bankId"
-          description: "The bank id that send the transaction"
-          in: "path"
-          required: true
-          type: string
-        - name: "accountId"
-          description: "The account id that send the transaction"
-          in: "path"
-          required: true
-          type: string
-        - name: "viewId"
-          in: "path"
-          required: true
-          type: string
-        - in: "body"
-          name: "body"
-          description: "The transaction description"
+        - name: bankId
+          in: path
+          description: The bank id that send the transaction
           required: true
           schema:
-            $ref: "#/definitions/SCTTransfer"
+            type: integer
+        - name: accountId
+          in: path
+          description: The account id that send the transaction
+          required: true
+          schema:
+            type: string
+        - name: viewId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The transaction description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTTransfer'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/return/banks/{bankId}/transactions/{transactionId}:
     post:
+      summary: Return a SEPA transaction
       tags:
-        - "SCT"
-      summary: "Return a SEPA transaction"
-      description: "
+        - SCT
+      description: |
         Reason codes availables :
-
-      - **AC01** : IncorrectAccountNumber : Account identifier invalid (i.e. invalid IBAN or account number does not exist)
-
-      - **AC04** : ClosedAccountNumber : Account closed
-
-      - **AC06** : BlockedAccount : Account blocked, reason not specified
-
-      - **AG01** : TransactionForbidden : Credit transfer forbidden on this type of account (e.g. savings account)
-
-      - **AG02** : InvalidBankOperationCode : Operation/transaction code incorrect, invalid file format
-
-      - **AM05** : Duplication : Duplicate payment
-
-      - **BE04** : MissingCreditorAddress : Account address invalid
-
-      - **CNOR** : Creditor bank is not registered : Creditor bank is not registered under this BIC in the CSM
-
-      - **ERIN** : ERIOptionNotSupported : The Extended Remittance Information (ERI) option is not supported
-
-      - **MD07** : EndCustomerDeceased : Beneficiary deceased
-
-      - **MS02** : NotSpecifiedReasonCustomerGenerated : By order of the Beneficiary
-
-      - **MS03** : NotSpecifiedReasonAgentGenerated : Reason not specified
-
-      - **RC01** : BankIdentifierIncorrect : Bank identifier incorrect, eg, invalid BIC
-
-      - **RR01** : MissingDebtorAccountOrIdentification : Regulatory Reason
-
-      - **RR02** : MissingDebtorsNameOrAddress : Regulatory Reason
-
-      - **RR03** : MissingCreditorsNameOrAddress : Regulatory Reason
-
-      - **RR04** : RegulatoryReason : Regulatory Reason
-      "
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
+        - **AC01** : IncorrectAccountNumber : Account identifier invalid (i.e. invalid IBAN or account number does not exist)
+        - **AC04** : ClosedAccountNumber : Account closed
+        - **AC06** : BlockedAccount : Account blocked, reason not specified
+        - **AG01** : TransactionForbidden : Credit transfer forbidden on this type of account (e.g. savings account)
+        - **AG02** : InvalidBankOperationCode : Operation/transaction code incorrect, invalid file format
+        - **AM05** : Duplication : Duplicate payment
+        - **BE04** : MissingCreditorAddress : Account address invalid
+        - **CNOR** : Creditor bank is not registered : Creditor bank is not registered under this BIC in the CSM
+        - **ERIN** : ERIOptionNotSupported : The Extended Remittance Information (ERI) option is not supported
+        - **MD07** : EndCustomerDeceased : Beneficiary deceased
+        - **MS02** : NotSpecifiedReasonCustomerGenerated : By order of the Beneficiary
+        - **MS03** : NotSpecifiedReasonAgentGenerated : Reason not specified
+        - **RC01** : BankIdentifierIncorrect : Bank identifier incorrect, eg, invalid BIC
+        - **RR01** : MissingDebtorAccountOrIdentification : Regulatory Reason
+        - **RR02** : MissingDebtorsNameOrAddress : Regulatory Reason
+        - **RR03** : MissingCreditorsNameOrAddress : Regulatory Reason
+        - **RR04** : RegulatoryReason : Regulatory Reason
       parameters:
-        - name: "bankId"
-          description: "The bankId that return the transaction"
-          in: "path"
-          required: true
-          type: string
-        - name: "transactionId"
-          description: "The initial transactionId to return"
-          in: "path"
-          required: true
-          type: string
-        - in: "body"
-          name: "body"
-          description: "The return description"
+        - name: bankId
+          in: path
+          description: The bankId that return the transaction
           required: true
           schema:
-            $ref: "#/definitions/SCTReturn"
+            type: string
+        - name: transactionId
+          in: path
+          description: The initial transactionId to return
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The return description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTReturn'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/recall/banks/{bankId}/transactions/{transactionId}:
     post:
+      summary: Recall a SEPA transaction
       tags:
-        - "SCT"
-      summary: "Recall a SEPA transaction"
-      description: "
+        - SCT
+      description: |
         Reason codes availables :
-
         - **DUPL** : Duplicate Sending
-
         - **TECH** : Technical problems resulting in erroneous
-
         - **FRAD** : Fraudulent originated SEPA Credit
-
         - **CUST** : Requested by Customer By request of the Originator without any reason specified
-
         - **AM09** : Wrong Amount
-
         - **AC03** : Invalid Creditor Account Number : Wrong unique identifier of the Beneficiary account
-      "
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
       parameters:
-        - name: "bankId"
-          description: "The bankId that recall the transaction"
-          in: "path"
-          required: true
-          type: string
-        - name: "transactionId"
-          description: "The initial transactionId to recall"
-          in: "path"
-          required: true
-          type: string
-        - in: "body"
-          name: "body"
-          description: "The recall description"
+        - name: bankId
+          in: path
+          description: The bankId that recall the transaction
           required: true
           schema:
-            $ref: "#/definitions/SCTRecall"
+            type: string
+        - name: transactionId
+          in: path
+          description: The initial transactionId to recall
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The recall description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTRecall'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/recall-reject/banks/{bankId}/recalls/{recallId}:
     post:
+      summary: Reject a recall request
       tags:
-        - "SCT"
-      summary: "Reject a recall request"
-      description: "
+        - SCT
+      description: |
         Reason codes availables :
-
         - **CUST** : CustomerDecision : Beneficiary’s Refusal
-
         - **LEGL** : LegalDecision : Legal reasons
-
         - **ARDT** : The transaction has already been returned
-
         - **AC04** : ClosedAccountNumber : Account closed
-
         - **AM04** : InsufficientFunds : Insufficient funds on the account
-
         - **NOAS** : NoAnswerFromCustomer : No response from Beneficiary
-
         - **NOOR** : NoOriginalTransactionReceived : Initial SEPA Credit Transfer Transaction never received
-      "
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
       parameters:
-        - name: "bankId"
-          description: "The bankId that reject the recall"
-          in: "path"
-          required: true
-          type: "string"
-        - name: "recallId"
-          description: "The initial recallId"
-          in: "path"
-          required: true
-          type: string
-        - in: "body"
-          name: "body"
-          description: "The recall reject description"
+        - name: bankId
+          in: path
+          description: The bankId that reject the recall
           required: true
           schema:
-            $ref: "#/definitions/SCTRecallReject"
+            type: string
+        - name: recallId
+          in: path
+          description: The initial recallId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The recall reject description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTRecallReject'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/inquiry-claim-non-receipt/banks/{bankId}:
     post:
+      summary: Send a claim of non-receipt
       tags:
-        - "SCT"
-      summary: "Send a claim of non-receipt"
+        - SCT
       description: "**WARNING : Some mandatory IDs could be unknow**"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
       parameters:
-        - name: "bankId"
-          description: "The bankId who send the claim of non-receipt"
-          in: "path"
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "The claim of non receipt description"
+        - name: bankId
+          in: path
+          description: The bankId who send the claim of non-receipt
           required: true
           schema:
-            $ref: "#/definitions/SCTInquiryClaimNonReceipt"
+            type: string
+      requestBody:
+        description: The claim of non receipt description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTInquiryClaimNonReceipt'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/inquiry-value-date-correction/banks/{bankId}/transactions/{transactionId}:
     post:
+      summary: Send a claim for value date correction
       tags:
-        - "SCT"
-      summary: "Send a claim for value date correction"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
+        - SCT
       parameters:
-        - name: "bankId"
-          description: "The bankId who send the claim for value date correction"
-          in: "path"
-          required: true
-          type: "string"
-        - name: "transactionId"
-          description: "The initial transactionId which value date need to be corrected"
-          in: "path"
-          required: true
-          type: string
-        - in: "body"
-          name: "body"
-          description: "The claim for value date correction description"
+        - name: bankId
+          in: path
+          description: The bankId who send the claim for value date correction
           required: true
           schema:
-            $ref: "#/definitions/SCTInquiryClaimValueDateCorrection"
+            type: string
+        - name: transactionId
+          in: path
+          description: The initial transactionId which value date need to be corrected
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The claim for value date correction description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTInquiryClaimValueDateCorrection'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/inquiry-response/banks/{bankId}/messages/{messageId}:
     post:
+      summary: Send an inquiry response
       tags:
-        - "SCT"
-      summary: "Send an inquiry response"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
+        - SCT
       parameters:
-        - name: "bankId"
-          description: "The bankId who send the inquiry response"
-          in: "path"
-          required: true
-          type: "string"
-        - name: "messageId"
-          description: "The initial messageId related to the inquiry response"
-          in: "path"
-          required: true
-          type: string
-        - in: "body"
-          name: "body"
-          description: "The inquiry response description"
+        - name: bankId
+          in: path
+          description: The bankId who send the inquiry response
           required: true
           schema:
-            $ref: "#/definitions/SCTInquiryResponse"
+            type: string
+        - name: messageId
+          in: path
+          description: The initial messageId related to the inquiry response
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The inquiry response description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTInquiryResponse'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/status-update/banks/{bankId}/messages/{messageId}:
     post:
+      summary: Send a status update on a recall or inquiry
       tags:
-        - "SCT"
-      summary: "Send a status update on a recall or inquiry"
+        - SCT
       description: "**TODO**"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
       parameters:
-        - name: "bankId"
-          description: "The bankId who send the status update"
-          in: "path"
+        - name: bankId
+          in: path
+          description: The bankId who send the status update
           required: true
-          type: "string"
-        - name: "messageId"
-          description: "The initial messageId (recall or inquiry) on which we request an update"
-          in: "path"
+          schema:
+            type: string
+        - name: messageId
+          in: path
+          description: The initial messageId (recall or inquiry) on which we request an update
           required: true
-          type: string
+          schema:
+            type: string
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/messages/banks/{bankId}/messages/{messageId}:
     get:
+      summary: Get a SEPA SCT message by his id
       tags:
-        - "SCT"
-      summary: "Get a SEPA SCT message by his id"
-      description: "A sepa message can be a Transfer, Return, Recall, Recall Update, Inquiry, ..."
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
+        - SCT
+      description: A sepa message can be a Transfer, Return, Recall, Recall Update, Inquiry, ...
       parameters:
-        - name: "bankId"
-          description: "The bankId who want to get the sepa message"
-          in: "path"
+        - name: bankId
+          in: path
+          description: The bankId who want to get the sepa message
           required: true
-          type: "string"
-        - name: "messageId"
-          description: "The messageId (recall or inquiry) to get"
-          in: "path"
+          schema:
+            type: string
+        - name: messageId
+          in: path
+          description: The messageId (recall or inquiry) to get
           required: true
-          type: string
+          schema:
+            type: string
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
   /sct/messages-webhook/banks/{bankId}:
     get:
+      summary: Get the SEPA SCT messages webhooks for a given bank
       tags:
-        - "SCT"
-      summary: "Get the SEPA SCT messages webhooks for a given bank"
+        - SCT
       description: "**TODO**"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
       parameters:
-        - name: "bankId"
-          description: "The bankId who want to get its sepa sct messages webhooks"
-          in: "path"
+        - name: bankId
+          in: path
+          description: The bankId who want to get its sepa sct messages webhooks
           required: true
-          type: "string"
+          schema:
+            type: string
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
     post:
+      summary: Create a SEPA SCT message webhook
       tags:
-        - "SCT"
-      summary: "Create a SEPA SCT message webhook"
-      description: "Give a callback URL to be triggered when a new event happen : Transfer, Return, Recall, Recall Update, Inquiry, ...
+        - SCT
+      description: |
+        Give a callback URL to be triggered when a new event happen : Transfer, Return, Recall, Recall Update, Inquiry, ...
 
         The following kinds of event can be trigerred :
-
         - OnTransferReceipt
-
         - OnRejectReceipt
-
         - OnReturnReceipt
-
         - OnRecallReceipt
-
         - OnRecallRejectReceipt
-
         - OnInquiryClaimNonReceiptReceipt
-
         - OnInquiryClaimValueDateCorrectionReceipt
-
         - OnInquiryResponseReceipt
-
         - OnStatusUpdateReceipt
-      "
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
       parameters:
-        - name: "bankId"
-          description: "The bankId who want to create the sepa message webhook"
-          in: "path"
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "The new sepa message webhook description"
+        - name: bankId
+          in: path
+          description: The bankId who want to create the sepa message webhook
           required: true
           schema:
-            $ref: "#/definitions/SCTCreateMessagesWebhook"
+            type: string
+      requestBody:
+        description: The new sepa message webhook description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTCreateMessagesWebhook'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
+      callbacks:
+        OnTransferReceipt:
+          '{$request.body#/url}':
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+              responses:
+                '200':
+                  description: Success
       security:
         - obp_auth: []
 
   /sct/messages-webhook/banks/{bankId}/webhook/{webhookId}:
     get:
+      summary: Get a SEPA SCT message webhook
       tags:
-        - "SCT"
-      summary: "Get a SEPA SCT message webhook"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
+        - SCT
       parameters:
-        - name: "bankId"
-          description: "The bankId who want to get the webhook"
-          in: "path"
+        - name: bankId
+          in: path
+          description: The bankId who want to get the webhook
           required: true
-          type: "string"
-        - name: "webhookId"
-          description: "The webhookId to retrieve"
-          in: "path"
+          schema:
+            type: string
+        - name: webhookId
+          in: path
+          description: The webhookId to retrieve
           required: true
-          type: "string"
+          schema:
+            type: string
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
     put:
+      summary: Update a SEPA SCT message webhook
       tags:
-        - "SCT"
-      summary: "Update a SEPA SCT message webhook"
-      description: "
+        - SCT
+      description: |
         The following kinds of event can be trigerred :
-
         - OnTransferReceipt
-
         - OnRejectReceipt
-
         - OnReturnReceipt
-
         - OnRecallReceipt
-
         - OnRecallRejectReceipt
-
         - OnInquiryClaimNonReceiptReceipt
-
         - OnInquiryClaimValueDateCorrectionReceipt
-
         - OnInquiryResponseReceipt
-
         - OnStatusUpdateReceipt
-
-      "
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
       parameters:
-        - name: "bankId"
-          description: "The bankId who want to update the sepa message webhook"
-          in: "path"
-          required: true
-          type: "string"
-        - name: "webhookId"
-          description: "The webhookId to update"
-          in: "path"
-          required: true
-          type: "string"
-        - in: "body"
-          name: "body"
-          description: "The updated sepa message webhook description"
+        - name: bankId
+          in: path
+          description: The bankId who want to update the sepa message webhook
           required: true
           schema:
-            $ref: "#/definitions/SCTUpdateMessagesWebhook"
+            type: string
+        - name: webhookId
+          in: path
+          description: The webhookId to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The updated sepa message webhook description
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SCTUpdateMessagesWebhook'
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
     delete:
+      summary: Delete a SEPA SCT message webhook
       tags:
-        - "SCT"
-      summary: "Delete a SEPA SCT message webhook"
-      consumes:
-        - "application/json"
-      produces:
-        - "application/json"
+        - SCT
       parameters:
-        - name: "bankId"
-          description: "The bankId who want to delete the sepa message webhook"
-          in: "path"
+        - name: bankId
+          in: path
+          description: The bankId who want to delete the sepa message webhook
           required: true
-          type: "string"
-        - name: "webhookId"
-          description: "The webhookId to delete"
-          in: "path"
+          schema:
+            type: string
+        - name: webhookId
+          in: path
+          description: The webhookId to delete
           required: true
-          type: "string"
+          schema:
+            type: string
       responses:
-        "200":
-          description: "Success"
+        '200':
+          description: Success
       security:
         - obp_auth: []
 
+components:
 
-securityDefinitions:
-  obp_auth:
-    type: "basic"
+  schemas:
+    SCTTransfer:
+      type: object
+      properties:
+        value:
+          type: object
+          properties:
+            currency:
+              type: string
+              maxLength: 3
+              default: EUR
+            amount:
+              type: number
+        to:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 140
+            account:
+              type: object
+              properties:
+                iban:
+                  type: string
+                  maxLength: 34
+                bic:
+                  type: string
+                  maxLength: 11
+        description:
+          type: string
+          maxLength: 140
 
+    SCTReturn:
+      type: object
+      properties:
+        originator:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 140
+            bic:
+              type: string
+              maxLength: 11
+        reasonCode:
+          type: string
+          maxLength: 4
 
-definitions:
-  SCTTransfer:
-    type: "object"
-    properties:
-      value:
-        type: "object"
-        properties:
-          currency:
-            type: "string"
-            maxLength: 3
-            default: "EUR"
-          amount:
-            type: "number"
-      to:
-        type: "object"
-        properties:
-          name:
-            type: "string"
-            maxLength: 140
-          account:
-            type: "object"
-            properties:
-              iban:
-                type: "string"
-                maxLength: 34
-              bic:
-                type: "string"
-                maxLength: 11
-      description:
-        type: "string"
-        maxLength: 140
+    SCTRecall:
+      type: object
+      properties:
+        originator:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 140
+            bic:
+              type: string
+              maxLength: 11
+        reasonCode:
+          type: string
+          maxLength: 4
+        additionalInformation:
+          type: string
+          maxLength: 105
 
-  SCTReturn:
-    type: "object"
-    properties:
-      originator:
-        type: "object"
-        properties:
-          name:
-            type: "string"
-            maxLength: 140
-          bic:
-            type: "string"
-            maxLength: 11
-      reasonCode:
-        type: "string"
-        maxLength: 4
+    SCTRecallReject:
+      type: object
+      properties:
+        originator:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 140
+            bic:
+              type: string
+              maxLength: 11
+        reasonCode:
+          type: string
+          maxLength: 4
+        additionalInformation:
+          type: string
+          maxLength: 105
 
-  SCTRecall:
-    type: "object"
-    properties:
-      originator:
-        type: "object"
-        properties:
-          name:
-            type: "string"
-            maxLength: 140
-          bic:
-            type: "string"
-            maxLength: 11
-      reasonCode:
-        type: "string"
-        maxLength: 4
-      additionalInformation:
-        type: "string"
-        maxLength: 105
+    SCTInquiryClaimNonReceipt:
+      type: object
+      properties:
+        originalTransaction:
+          type: object
+          properties:
+            id:
+              type: string
+            creditor:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 140
+                account:
+                  type: object
+                  properties:
+                    iban:
+                      type: string
+                      maxLength: 34
+                    bic:
+                      type: string
+                      maxLength: 11
+            debtor:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 140
+                account:
+                  type: object
+                  properties:
+                    iban:
+                      type: string
+                      maxLength: 34
+                    bic:
+                      type: string
+                      maxLength: 11
+            amount:
+              type: number
+            description:
+              type: string
+        additionalInformation:
+          type: string
+          maxLength: 105
 
-  SCTRecallReject:
-    type: "object"
-    properties:
-      originator:
-        type: "object"
-        properties:
-          name:
-            type: "string"
-            maxLength: 140
-          bic:
-            type: "string"
-            maxLength: 11
-      reasonCode:
-        type: "string"
-        maxLength: 4
-      additionalInformation:
-        type: "string"
-        maxLength: 105
+    SCTInquiryClaimValueDateCorrection:
+      type: object
+      properties:
+        newDate:
+          type: string
+        additionalInformation:
+          type: string
+          maxLength: 105
 
-  SCTInquiryClaimNonReceipt:
-    type: "object"
-    properties:
-      originalTransaction:
-        type: "object"
-        properties:
-          id:
-            type: "string"
-          creditor:
-            type: "object"
-            properties:
-              name:
-                type: "string"
-                maxLength: 140
-              account:
-                type: "object"
-                properties:
-                  iban:
-                    type: "string"
-                    maxLength: 34
-                  bic:
-                    type: "string"
-                    maxLength: 11
-          debtor:
-            type: "object"
-            properties:
-              name:
-                type: "string"
-                maxLength: 140
-              account:
-                type: "object"
-                properties:
-                  iban:
-                    type: "string"
-                    maxLength: 34
-                  bic:
-                    type: "string"
-                    maxLength: 11
-          amount:
-            type: number
-          description:
-            type: "string"
-      additionalInformation:
-        type: "string"
-        maxLength: 105
+    SCTInquiryResponse:
+      type: object
+      properties:
+        responseType:
+          type: string
+          enum:
+            - positive
+            - negative
 
-  SCTInquiryClaimValueDateCorrection:
-    type: "object"
-    properties:
-      newDate:
-        type: "string"
-      additionalInformation:
-        type: "string"
-        maxLength: 105
+    SCTCreateMessagesWebhook:
+      type: object
+      properties:
+        triggerName:
+          type: string
+          enum:
+            - OnTransferReceipt
+            - OnRejectReceipt
+            - OnReturnReceipt
+            - OnRecallReceipt
+            - OnRecallRejectReceipt
+            - OnInquiryClaimNonReceiptReceipt
+            - OnInquiryClaimValueDateCorrectionReceipt
+            - OnInquiryResponseReceipt
+            - OnStatusUpdateReceipt
+        url:
+          type: string
+          format: uri
+          example: https://myserver.com/send/callback/here
+        httpMethod:
+          type: string
+          enum:
+            - POST
+        httpProtocol:
+          type: string
+          enum:
+            - HTTP/1.1
+            - HTTP/2
+        isActive:
+          type: boolean
 
-  SCTInquiryResponse:
-    type: "object"
-    properties:
-      responseType:
-        type: "string"
-        enum:
-          - "positive"
-          - "negative"
+    SCTUpdateMessagesWebhook:
+      type: object
+      properties:
+        triggerName:
+          type: string
+          enum:
+            - OnTransferReceipt
+            - OnRejectReceipt
+            - OnReturnReceipt
+            - OnRecallReceipt
+            - OnRecallRejectReceipt
+            - OnInquiryClaimNonReceiptReceipt
+            - OnInquiryClaimValueDateCorrectionReceipt
+            - OnInquiryResponseReceipt
+            - OnStatusUpdateReceipt
+        url:
+          type: string
+        httpMethod:
+          type: string
+          enum:
+            - POST
+        httpProtocol:
+          type: string
+          enum:
+            - HTTP/1.1
+            - HTTP/2
+        isActive:
+          type: boolean
 
-  SCTCreateMessagesWebhook:
-    type: "object"
-    properties:
-      triggerName:
-        type: "string"
-        enum:
-          - "OnTransferReceipt"
-          - "OnRejectReceipt"
-          - "OnReturnReceipt"
-          - "OnRecallReceipt"
-          - "OnRecallRejectReceipt"
-          - "OnInquiryClaimNonReceiptReceipt"
-          - "OnInquiryClaimValueDateCorrectionReceipt"
-          - "OnInquiryResponseReceipt"
-          - "OnStatusUpdateReceipt"
-      url:
-        type: "string"
-      httpMethod:
-        type: "string"
-        enum:
-          - "POST"
-      httpProtocol:
-        type: "string"
-        enum:
-          - "HTTP/1.1"
-          - "HTTP/2"
-      isActive:
-        type: "boolean"
-
-  SCTUpdateMessagesWebhook:
-    type: "object"
-    properties:
-      triggerName:
-        type: "string"
-        enum:
-          - "OnTransferReceipt"
-          - "OnRejectReceipt"
-          - "OnReturnReceipt"
-          - "OnRecallReceipt"
-          - "OnRecallRejectReceipt"
-          - "OnInquiryClaimNonReceiptReceipt"
-          - "OnInquiryClaimValueDateCorrectionReceipt"
-          - "OnInquiryResponseReceipt"
-          - "OnStatusUpdateReceipt"
-      url:
-        type: "string"
-      httpMethod:
-        type: "string"
-        enum:
-          - "POST"
-      httpProtocol:
-        type: "string"
-        enum:
-          - "HTTP/1.1"
-          - "HTTP/2"
-      isActive:
-        type: "boolean"
+  securitySchemes:
+    obp_auth:
+      type: http
+      scheme: basic
 
 
 externalDocs:
-  description: "OBP API Explorer"
-  url: "https://apiexplorer.openbankproject.com/"
+  description: OBP API Explorer
+  url: https://apiexplorer.openbankproject.com/
