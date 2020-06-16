@@ -1,3 +1,4 @@
 .idea
 project/target
 target
+/src/main/scala/sepa/example.xml
