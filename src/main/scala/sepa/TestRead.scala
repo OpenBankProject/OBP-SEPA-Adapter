@@ -1,11 +1,6 @@
 package sepa
 
-import java.util.UUID
-
-import generated.`package`.defaultScope
-import generated.{AccountIdentification4Choice, ActiveCurrencyAndAmount, BranchAndFinancialInstitutionIdentification4, CLRG, CashAccount16, CreditTransferTransactionInformation11, Document, FIToFICustomerCreditTransferV02, FinancialInstitutionIdentification7, GroupHeader33, PartyIdentification32, PaymentIdentification3, PaymentTypeInformation21, Purpose2Choice, RemittanceInformation5, SLEV, ServiceLevel8Choice, SettlementInformation13, _}
-import javax.xml.datatype.DatatypeFactory
-import scalaxb.DataRecord
+import generated.{Document, _}
 
 import scala.xml.XML
 
@@ -19,3 +14,4 @@ object TestRead extends App {
   document.FIToFICstmrCdtTrf.CdtTrfTxInf.head.Cdtr.Nm.map(println)
 
 }
+

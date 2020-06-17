@@ -18,7 +18,7 @@ libraryDependencies ++= Seq(
   "javax.xml.bind" % "jaxb-api" % "2.3.1"
 )
 
-lazy val root = (project in file(".")).enablePlugins(ScalaxbPlugin)
+// lazy val root = (project in file(".")).enablePlugins(ScalaxbPlugin)
 
 lazy val akkaVersion = "2.5.19"
 
