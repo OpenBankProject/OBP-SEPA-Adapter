@@ -7,6 +7,8 @@ import akka.actor.{Actor, ActorLogging, DeadLetter}
 import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
+import model.types.Bic
+import sepa.{CreditTransferMessage, CreditTransferTransaction, SepaUtil}
 
 import scala.collection.immutable.List
 
@@ -54,7 +56,7 @@ class CbsActor extends Actor with ActorLogging {
           swiftBic = "DEOBPBB1XXX",
           nationalIdentifier = "National Identifier"
         )
-      ))
+        ))
       sender ! result
     }
 
@@ -113,6 +115,25 @@ class CbsActor extends Actor with ActorLogging {
 
     case OutBoundCreateTransactionRequestv400(callContext, initiator, viewId, fromAccount, toAccount, transactionRequestType, transactionRequestCommonBody, detailsPlain, chargePolicy, challengeType, scaMethod) => {
       println("transaction request received")
+
+      val creditTransferMessage = CreditTransferMessage(
+        SepaUtil.removeDashesToUUID(UUID.randomUUID()),
+        creditTransferTransactions = Seq(
+          CreditTransferTransaction(
+            SepaUtil.removeDashesToUUID(UUID.randomUUID()),
+            amount = BigDecimal(transactionRequestCommonBody.value.amount),
+            debtorName = Some(fromAccount.accountHolder),
+            debtorAccount = fromAccount.iban.map(Iban),
+            debtorAgent = Some(Bic(fromAccount.bankId.toString())),
+            creditorName = Some(toAccount.accountHolder),
+            creditorAccount = toAccount.iban.map(Iban),
+            creditorAgent = Some(Bic(toAccount.bankId.toString())),
+            purposeCode = None,
+            descripton = Some(transactionRequestCommonBody.description)
+          )
+        )
+      )
+
       val transactionRequest = TransactionRequest(
         id = TransactionRequestId(UUID.randomUUID().toString),
         `type` = transactionRequestType.value,
@@ -142,7 +163,7 @@ class CbsActor extends Actor with ActorLogging {
           ),
           description = transactionRequestCommonBody.description
         ),
-        transaction_ids = "",
+        transaction_ids = creditTransferMessage.toXML().toString(),
         status = "INITIATED",
         start_date = Date.from(Instant.now()),
         end_date = Date.from(Instant.now()),
