@@ -1,4 +1,4 @@
-package model
+package model.archives
 
 import java.time.LocalDate
 import java.util.UUID

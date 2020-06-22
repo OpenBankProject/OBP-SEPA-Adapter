@@ -1,11 +1,10 @@
-package model
+package model.archives
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
 import model.enums.TransactionStatus.TransactionStatus
 import model.enums.TransactionType.TransactionType
-
 
 case class CardTransaction(override val id: UUID,
                            override val accountId: UUID,

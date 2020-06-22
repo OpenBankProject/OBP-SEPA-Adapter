@@ -3,12 +3,12 @@ package sepa
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
 
-import com.openbankproject.commons.model.Iban
 import generated._
 import javax.xml.datatype.DatatypeFactory
 import model.enums.SepaMessageType
 import model.enums.SepaMessageType.SepaMessageType
 import model.types.Bic
+import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
 
 import scala.util.Try
@@ -51,29 +51,7 @@ case class CreditTransferMessage(
           InstgAgt = instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
           InstdAgt = instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
         ),
-        CdtTrfTxInf = creditTransferTransactions.map(transaction =>
-          CreditTransferTransactionInformation11(
-            PmtId = PaymentIdentification3(
-              EndToEndId = transaction.endToEndId,
-              TxId = transaction.idInSepaFile,
-              InstrId = transaction.instructionId
-            ),
-            IntrBkSttlmAmt = ActiveCurrencyAndAmount(value = transaction.amount, Map(("@Ccy", DataRecord("EUR")))),
-            ChrgBr = SLEV,
-            Dbtr = PartyIdentification32(
-              Nm = transaction.debtorName
-            ),
-            DbtrAcct = transaction.debtorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
-            DbtrAgt = BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = transaction.debtorAgent.map(_.bic))),
-            Cdtr = PartyIdentification32(
-              Nm = transaction.creditorName,
-            ),
-            CdtrAcct = transaction.creditorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
-            CdtrAgt = BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = transaction.creditorAgent.map(_.bic))),
-            Purp = transaction.purposeCode.map(purposeCode => Purpose2Choice(DataRecord(<Cd></Cd>, purposeCode))),
-            RmtInf = transaction.descripton.map(description => RemittanceInformation5(Ustrd = Seq(description)))
-          )
-        )
+        CdtTrfTxInf = creditTransferTransactions.map(transaction => scalaxb.fromXML[CreditTransferTransactionInformation11](transaction.toXML))
       )
     )
     scalaxb.toXML[Document](document, "Document", defaultScope)
@@ -81,10 +59,25 @@ case class CreditTransferMessage(
 }
 
 object CreditTransferMessage {
-  def fromXML(id: UUID = UUID.randomUUID(), sepaFileId: UUID, xmlFile: Elem): Try[CreditTransferMessage] = {
+  def fromSepaMessage(sepaMessage: SepaMessage, creditTransferTransactions: Seq[SepaCreditTransferTransaction]): CreditTransferMessage = {
+    CreditTransferMessage(
+      id = sepaMessage.id,
+      creationDateTime = LocalDateTime.now(),
+      messageType = sepaMessage.messageType,
+      content = sepaMessage.content,
+      sepaFileId = sepaMessage.sepaFileId,
+      idInSepaFile = sepaMessage.idInSepaFile,
+      interbankSettlementDate = Some(sepaMessage.creationDateTime.toLocalDate.plusDays(1)),
+      instigatingAgent = None,
+      instigatedAgent = None,
+      creditTransferTransactions = creditTransferTransactions
+    )
+  }
+
+  def fromXML(messageId: UUID = UUID.randomUUID(), sepaFileId: UUID, xmlFile: Elem): Try[CreditTransferMessage] = {
     Try(scalaxb.fromXML[Document](xmlFile)).map(document =>
       CreditTransferMessage(
-        id = id,
+        id = messageId,
         creationDateTime = document.FIToFICstmrCdtTrf.GrpHdr.CreDtTm.toGregorianCalendar.toZonedDateTime.toLocalDateTime,
         content = Some(document.toString),
         sepaFileId = Some(sepaFileId),
@@ -93,22 +86,7 @@ object CreditTransferMessage {
         instigatingAgent = document.FIToFICstmrCdtTrf.GrpHdr.InstgAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
         instigatedAgent = document.FIToFICstmrCdtTrf.GrpHdr.InstdAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
         creditTransferTransactions = document.FIToFICstmrCdtTrf.CdtTrfTxInf.map(transaction =>
-          SepaCreditTransferTransaction(
-            id = UUID.randomUUID(),
-            amount = transaction.IntrBkSttlmAmt.value,
-            debtorName = transaction.Dbtr.Nm,
-            debtorAccount = transaction.DbtrAcct.map(a => Iban(a.Id.accountidentification4choicableoption.value.toString)),
-            debtorAgent = transaction.DbtrAgt.FinInstnId.BIC.map(Bic),
-            creditorName = transaction.Cdtr.Nm,
-            creditorAccount = transaction.CdtrAcct.map(a => Iban(a.Id.accountidentification4choicableoption.value.toString)),
-            creditorAgent = transaction.CdtrAgt.FinInstnId.BIC.map(Bic),
-            purposeCode = transaction.Purp.map(_.purpose2choicableoption.value),
-            descripton = transaction.RmtInf.flatMap(_.Ustrd.headOption),
-            sepaMessageId = id,
-            idInSepaFile = transaction.PmtId.TxId,
-            instructionId = transaction.PmtId.InstrId,
-            endToEndId = transaction.PmtId.EndToEndId
-          )
+          SepaCreditTransferTransaction.fromXML(transaction, messageId)
         )
       )
     )

@@ -1,6 +1,6 @@
 package core
 
-import model.Transaction
+import model.archives.Transaction
 
 class Authorization (transaction: Transaction) {
 

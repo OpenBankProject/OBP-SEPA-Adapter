@@ -1,4 +1,4 @@
-package model
+package model.archives
 
 import java.nio.file.Path
 import java.time.LocalDateTime

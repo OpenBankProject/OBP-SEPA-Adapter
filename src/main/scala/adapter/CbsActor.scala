@@ -7,9 +7,10 @@ import akka.actor.{Actor, ActorLogging, DeadLetter}
 import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
+import model.SepaCreditTransferTransaction
 import model.enums.SepaMessageType
 import model.types.Bic
-import sepa.{CreditTransferMessage, SepaCreditTransferTransaction, SepaUtil}
+import sepa.{CreditTransferMessage, SepaUtil}
 
 import scala.collection.immutable.List
 
@@ -117,7 +118,6 @@ class CbsActor extends Actor with ActorLogging {
     case OutBoundCreateTransactionRequestv400(callContext, initiator, viewId, fromAccount, toAccount, transactionRequestType, transactionRequestCommonBody, detailsPlain, chargePolicy, challengeType, scaMethod) => {
       println("transaction request received")
 
-      val creditTransferMessageId = UUID.randomUUID()
       val creditTransferId = UUID.randomUUID()
 
       val creditTransferTransaction = SepaCreditTransferTransaction(
@@ -131,27 +131,13 @@ class CbsActor extends Actor with ActorLogging {
         creditorAgent = Some(Bic(toAccount.bankId.toString())),
         purposeCode = None,
         descripton = Some(transactionRequestCommonBody.description),
-        sepaMessageId = creditTransferMessageId,
+        sepaMessageId = None,
         idInSepaFile = SepaUtil.removeDashesToUUID(creditTransferId),
         instructionId = None,
         endToEndId = SepaUtil.removeDashesToUUID(creditTransferId)
       )
 
-
-      val creditTransferMessage = CreditTransferMessage(
-        id = creditTransferMessageId,
-        creationDateTime = LocalDateTime.now(),
-        messageType = SepaMessageType.B2B_CREDIT_TRANSFER,
-        content = None,
-        sepaFileId = None,
-        idInSepaFile = SepaUtil.removeDashesToUUID(creditTransferMessageId),
-        interbankSettlementDate = None,
-        instigatingAgent = None,
-        instigatedAgent = None,
-        creditTransferTransactions = Seq(creditTransferTransaction)
-      )
-
-      println(fromAccount.accountRoutings)
+      creditTransferTransaction.insert()
 
       val transactionRequest = TransactionRequest(
         id = TransactionRequestId(UUID.randomUUID().toString),
@@ -183,7 +169,7 @@ class CbsActor extends Actor with ActorLogging {
           description = transactionRequestCommonBody.description
         ),
         transaction_ids = creditTransferId.toString,
-        status = "INITIATED",
+        status = "COMPLETED",
         start_date = Date.from(Instant.now()),
         end_date = Date.from(Instant.now()),
         challenge = TransactionRequestChallenge(
