@@ -271,11 +271,21 @@ trait XMLStandardTypes {
   implicit def seqXMLFormat[A: XMLFormat]: XMLFormat[Seq[A]] = new XMLFormat[Seq[A]] {
     def reads(seq: scala.xml.NodeSeq, stack: List[ElemName]): Either[String, Seq[A]] =
     seq match {
+      case group: scala.xml.Group if group.nodes.nonEmpty =>
+        try {
+          val xs = Helper.splitBySpace(group.text).toSeq
+          Right(xs map { x => fromXML[A](scala.xml.Elem(group.prefix, group.head.label, scala.xml.Null, group.scope, true, scala.xml.Text(x)), stack) })
+        } catch { case e: Exception => Left(e.toString) }
+
+      case _: scala.xml.Group =>
+        Left("NonEmpty group expected: " + seq.toString)
+
       case node: scala.xml.Node =>
         try {
           val xs = Helper.splitBySpace(node.text).toSeq
           Right(xs map { x => fromXML[A](scala.xml.Elem(node.prefix, node.label, scala.xml.Null, node.scope, true, scala.xml.Text(x)), stack) })
         } catch { case e: Exception => Left(e.toString) }
+
       case _ => Left("Node expected: " + seq.toString)
     }
 
@@ -755,7 +765,7 @@ trait ElemNameParser[A] extends AnyElemNameParser with XMLFormat[A] with CanWrit
   def reads(seq: scala.xml.NodeSeq, stack: List[ElemName]): Either[String, A] = seq match {
     case node: scala.xml.Node =>
       parse(parser(node, stack), node.child) match {
-        case x: Success[_] => Right(x.get)
+        case x: Success[A] => Right(x.get)
         case x: Failure => Left(parserErrorMsg(x.msg, x.next, ElemName(node) :: stack))
         case x: Error => Left(parserErrorMsg(x.msg, node))
       }

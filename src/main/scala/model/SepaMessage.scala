@@ -28,7 +28,7 @@ object SepaMessage {
     case (id, creationDateTime, messageType, content, sepaFileId, idInSepaFile) => new SepaMessage(id, creationDateTime, messageType, content, sepaFileId, idInSepaFile)
   }
 
-  def getById(id: UUID): Future[Seq[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(_.id === id).result)
+  def getById(id: UUID): Future[Option[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(_.id === id).result.headOption)
 
   def getUnprocessed: Future[Seq[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(message => message.sepaFileId.isEmpty).result)
 

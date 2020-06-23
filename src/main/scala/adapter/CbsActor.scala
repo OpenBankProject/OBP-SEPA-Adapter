@@ -140,7 +140,7 @@ class CbsActor extends Actor with ActorLogging {
       creditTransferTransaction.insert()
 
       val transactionRequest = TransactionRequest(
-        id = TransactionRequestId(UUID.randomUUID().toString),
+        id = TransactionRequestId(creditTransferId.toString),
         `type` = transactionRequestType.value,
         from = TransactionRequestAccount(
           bank_id = fromAccount.bankId.toString(),

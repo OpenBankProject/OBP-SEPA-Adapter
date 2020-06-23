@@ -1,6 +1,6 @@
 package sepa
 
-import generated.{Document, _}
+import sepa.sct.generated.creditTransfer._
 
 import scala.xml.XML
 

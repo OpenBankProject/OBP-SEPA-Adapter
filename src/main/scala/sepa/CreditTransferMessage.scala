@@ -3,7 +3,7 @@ package sepa
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
 
-import generated._
+import sepa.sct.generated.creditTransfer._
 import javax.xml.datatype.DatatypeFactory
 import model.enums.SepaMessageType
 import model.enums.SepaMessageType.SepaMessageType

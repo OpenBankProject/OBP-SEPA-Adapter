@@ -3,8 +3,8 @@ package model
 import java.util.UUID
 
 import com.openbankproject.commons.model.Iban
-import generated._
-import generated.`package`.defaultScope
+import sepa.sct.generated.creditTransfer._
+import sepa.sct.generated.creditTransfer.`package`.defaultScope
 import model.types.Bic
 import scalaxb._
 import slick.dbio.DBIOAction
@@ -79,7 +79,7 @@ object SepaCreditTransferTransaction {
     )
   }
 
-  def getById(id: UUID): Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.id === id).result)
+  def getById(id: UUID): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.id === id).result.headOption)
 
   def getBySepaMessageId(sepaMessageId: UUID): Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.sepaMessageId === sepaMessageId).result)
 

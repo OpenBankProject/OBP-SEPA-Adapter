@@ -14,7 +14,7 @@ import scala.concurrent.{Await, Future}
 import scala.xml.XML
 
 
-object ProcessOutgoingFile extends App {
+object ProcessOutgoingFiles extends App {
 
   val sepaFileType = SepaFileType.SCT_OUT
   val sepaMessageType = SepaMessageType.B2B_CREDIT_TRANSFER

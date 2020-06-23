@@ -2,8 +2,8 @@ package sepa
 
 import java.util.UUID
 
-import generated._
-import generated.`package`.defaultScope
+import sepa.sct.generated.creditTransfer._
+import sepa.sct.generated.creditTransfer.defaultScope
 import javax.xml.datatype.DatatypeFactory
 import scalaxb.DataRecord
 

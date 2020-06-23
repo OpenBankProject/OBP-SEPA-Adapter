@@ -24,5 +24,5 @@ case class SepaFile(
 }
 
 object SepaFile {
-  def getById(id: UUID): Future[Seq[SepaFile]] = Schema.db.run(Schema.sepaFiles.filter(_.id === id).result)
+  def getById(id: UUID): Future[Option[SepaFile]] = Schema.db.run(Schema.sepaFiles.filter(_.id === id).result.headOption)
 }
