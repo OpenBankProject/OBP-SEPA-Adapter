@@ -8,9 +8,9 @@ import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
 import model.SepaCreditTransferTransaction
-import model.enums.SepaMessageType
+import model.enums.SepaCreditTransferTransactionStatus
 import model.types.Bic
-import sepa.{CreditTransferMessage, SepaUtil}
+import sepa.SepaUtil
 
 import scala.collection.immutable.List
 
@@ -131,10 +131,11 @@ class CbsActor extends Actor with ActorLogging {
         creditorAgent = Some(Bic(toAccount.bankId.toString())),
         purposeCode = None,
         descripton = Some(transactionRequestCommonBody.description),
-        sepaMessageId = None,
-        idInSepaFile = SepaUtil.removeDashesToUUID(creditTransferId),
+        creationDateTime = LocalDateTime.now(),
+        transactionIdInSepaFile = SepaUtil.removeDashesToUUID(creditTransferId),
         instructionId = None,
-        endToEndId = SepaUtil.removeDashesToUUID(creditTransferId)
+        endToEndId = SepaUtil.removeDashesToUUID(creditTransferId),
+        status = SepaCreditTransferTransactionStatus.UNPROCESSED
       )
 
       creditTransferTransaction.insert()

@@ -32,3 +32,11 @@ libraryDependencies ++= Seq(
   "net.liftweb" %% "lift-common" % "3.4.1",
   "com.twitter" %% "chill-akka" % "0.9.1"
 )
+
+val circeVersion = "0.12.3"
+
+libraryDependencies ++= Seq(
+  "io.circe" %% "circe-core",
+  "io.circe" %% "circe-generic",
+  "io.circe" %% "circe-parser"
+).map(_ % circeVersion)

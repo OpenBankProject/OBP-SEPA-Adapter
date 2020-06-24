@@ -1,12 +1,13 @@
 package model
 
 import java.nio.file.Path
-import java.time.LocalDateTime
+import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
 import _root_.slick.jdbc.JdbcType
 import com.openbankproject.commons.model.Iban
-
+import io.circe.{Json, JsonObject, parser}
+import model.enums.SepaCreditTransferTransactionStatus.SepaCreditTransferTransactionStatus
 import model.enums.SepaFileStatus.SepaFileStatus
 import model.enums.SepaFileType.SepaFileType
 import model.enums.SepaMessageType.SepaMessageType
@@ -25,10 +26,12 @@ object Schema {
   implicit lazy val ibanColumnType: JdbcType[Iban] with BaseTypedType[Iban] = MappedColumnType.base[Iban, String](_.iban, Iban)
   implicit lazy val bicColumnType: JdbcType[Bic] with BaseTypedType[Bic] = MappedColumnType.base[Bic, String](_.bic, Bic)
   implicit lazy val pathColumnType: JdbcType[Path] with BaseTypedType[Path] = MappedColumnType.base[Path, String](_.toString, Path.of(_:String))
+  implicit lazy val jsonColumnType = MappedColumnType.base[Json, String](_.toString(), parser.parse(_).toOption.orNull)
 
   implicit lazy val sepaFileTypeColumnType = MappedColumnType.base[SepaFileType, String](_.toString, SepaFileType.withName)
   implicit lazy val sepaFileStatusColumnType = MappedColumnType.base[SepaFileStatus, String](_.toString, SepaFileStatus.withName)
   implicit lazy val sepaMessageTypeColumnType = MappedColumnType.base[SepaMessageType, String](_.toString, SepaMessageType.withName)
+  implicit lazy val sepaCreditTransferTransactionStatusColumnType = MappedColumnType.base[SepaCreditTransferTransactionStatus, String](_.toString, SepaCreditTransferTransactionStatus.withName)
 
   class SepaFiles(tag: Tag) extends Table[SepaFile](tag, "sepa_file") {
     def id = column[UUID]("id", O.PrimaryKey)
@@ -38,7 +41,6 @@ object Schema {
     def status = column[SepaFileStatus]("status")
     def receiptDate = column[Option[LocalDateTime]]("receipt_date")
     def processedDate = column[Option[LocalDateTime]]("processed_date")
-    //def * = (id, name, path, fileType, status, receiptDate, processedDate) <> (SepaFile.tupled, SepaFile.unapply)
     def * = (id :: name :: path :: fileType :: status :: receiptDate :: processedDate :: HNil).mappedWith(Generic[SepaFile])
 
   }
@@ -48,10 +50,15 @@ object Schema {
     def id = column[UUID]("id", O.PrimaryKey)
     def creationDateTime = column[LocalDateTime]("creation_date_time")
     def messageType = column[SepaMessageType]("type")
-    def content = column[Option[String]]("content")
     def sepaFileId = column[Option[UUID]]("sepa_file_id")
-    def idInSepaFile = column[String]("id_in_sepa_file")
-    def * = (id, creationDateTime, messageType, content, sepaFileId, idInSepaFile) <> (SepaMessage.tupled, SepaMessage.unapply)
+    def messageIdInSepaFile = column[String]("message_id_in_sepa_file")
+    def numberOfTransactions = column[Int]("number_of_transactions")
+    def totalAmount = column[BigDecimal]("total_amount")
+    def settlementDate = column[Option[LocalDate]]("settlement_date")
+    def instigatingAgent = column[Option[Bic]]("instigating_agent")
+    def instigatedAgent = column[Option[Bic]]("instigated_agent")
+    def customFields = column[Option[Json]]("custom_fields")
+    def * = (id, creationDateTime, messageType, sepaFileId, messageIdInSepaFile, numberOfTransactions, totalAmount, settlementDate, instigatingAgent, instigatedAgent, customFields) <> (SepaMessage.tupled, SepaMessage.unapply)
 
     def sepaFile = foreignKey("sepa_message_sepa_file_id_fkey", sepaFileId, sepaFiles)(_.id)
   }
@@ -68,14 +75,21 @@ object Schema {
     def creditorAgent = column[Option[Bic]]("creditor_agent")
     def purposeCode = column[Option[String]]("purpose_code")
     def descripton = column[Option[String]]("descripton")
-    def sepaMessageId = column[Option[UUID]]("sepa_message_id")
-    def idInSepaFile = column[String]("id_in_sepa_file")
+    def creationDateTime = column[LocalDateTime]("creation_date_time")
+    def transactionIdInSepaFile = column[String]("transaction_id_in_sepa_file")
     def instructionId = column[Option[String]]("instruction_id")
     def endToEndId = column[String]("end_to_end_id")
-    def * = (id :: amount :: debtorName :: debtorAccount :: debtorAgent :: creditorName :: creditorAccount :: creditorAgent :: purposeCode :: descripton :: sepaMessageId :: idInSepaFile :: instructionId :: endToEndId :: HNil).mappedWith(Generic[SepaCreditTransferTransaction])
-
-    def sepaMessage = foreignKey("sepa_credit_transfer_transaction_sepa_message_id_fkey", sepaMessageId, sepaMessages)(_.id)
+    def status = column[SepaCreditTransferTransactionStatus]("status")
+    def * = (id :: amount :: debtorName :: debtorAccount :: debtorAgent :: creditorName :: creditorAccount :: creditorAgent :: purposeCode :: descripton :: creationDateTime :: transactionIdInSepaFile :: instructionId :: endToEndId :: status :: HNil).mappedWith(Generic[SepaCreditTransferTransaction])
   }
   val sepaCreditTransferTransactions = TableQuery[SepaCreditTransferTransactions]
+
+  class SepaTransactionMessages(tag: Tag) extends Table[SepaTransactionMessage](tag, "sepa_transaction_message") {
+    def sepaCreditTransferTransactionId = column[UUID]("sepa_credit_transfer_transaction_id")
+    def sepaMessageId = column[UUID]("sepa_message_id")
+    def transactionStatusIdInSepaFile = column[String]("transaction_status_id_in_sepa_file")
+    def * = (sepaCreditTransferTransactionId :: sepaMessageId :: transactionStatusIdInSepaFile :: HNil).mappedWith(Generic[SepaTransactionMessage])
+  }
+  val sepaTransactionMessages = TableQuery[SepaTransactionMessages]
 
 }

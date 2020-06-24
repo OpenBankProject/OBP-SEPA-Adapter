@@ -1,12 +1,16 @@
 package model
 
+import java.time.LocalDateTime
 import java.util.UUID
 
 import com.openbankproject.commons.model.Iban
-import sepa.sct.generated.creditTransfer._
-import sepa.sct.generated.creditTransfer.`package`.defaultScope
+import model.Schema.sepaCreditTransferTransactionStatusColumnType
+import model.enums.SepaCreditTransferTransactionStatus
+import model.enums.SepaCreditTransferTransactionStatus.SepaCreditTransferTransactionStatus
 import model.types.Bic
 import scalaxb._
+import sepa.sct.generated.creditTransfer._
+import sepa.sct.generated.creditTransfer.`package`.defaultScope
 import slick.dbio.DBIOAction
 import slick.jdbc.PostgresProfile.api._
 
@@ -24,20 +28,25 @@ case class SepaCreditTransferTransaction(
                                           creditorAgent: Option[Bic],
                                           purposeCode: Option[String],
                                           descripton: Option[String],
-                                          sepaMessageId: Option[UUID],
-                                          idInSepaFile: String,
+                                          creationDateTime: LocalDateTime,
+                                          transactionIdInSepaFile: String,
                                           instructionId: Option[String],
-                                          endToEndId: String
+                                          endToEndId: String,
+                                          status: SepaCreditTransferTransactionStatus
                                         ) {
   def insert(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions += this))
 
   def update(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions.filter(_.id === this.id).update(this)))
 
+  def linkMessage(messageId: UUID, transactionStatusIdInSepaFile: String): Future[Unit] = Schema.db.run(
+    DBIOAction.seq(Schema.sepaTransactionMessages += SepaTransactionMessage(this.id, messageId, transactionStatusIdInSepaFile))
+  )
+
   def toXML: NodeSeq = {
     val xmlTransaction = CreditTransferTransactionInformation11(
       PmtId = PaymentIdentification3(
         EndToEndId = endToEndId,
-        TxId = idInSepaFile,
+        TxId = transactionIdInSepaFile,
         InstrId = instructionId
       ),
       IntrBkSttlmAmt = ActiveCurrencyAndAmount(value = amount, Map(("@Ccy", DataRecord("EUR")))),
@@ -60,7 +69,7 @@ case class SepaCreditTransferTransaction(
 }
 
 object SepaCreditTransferTransaction {
-  def fromXML(transaction: CreditTransferTransactionInformation11able, sepaMessageId: UUID): SepaCreditTransferTransaction = {
+  def fromXML(transaction: CreditTransferTransactionInformation11able, creationDateTime: LocalDateTime): SepaCreditTransferTransaction = {
     SepaCreditTransferTransaction(
       id = UUID.randomUUID(),
       amount = transaction.IntrBkSttlmAmt.value,
@@ -72,17 +81,25 @@ object SepaCreditTransferTransaction {
       creditorAgent = transaction.CdtrAgt.FinInstnId.BIC.map(Bic),
       purposeCode = transaction.Purp.map(_.purpose2choicableoption.value),
       descripton = transaction.RmtInf.flatMap(_.Ustrd.headOption),
-      sepaMessageId = Some(sepaMessageId),
-      idInSepaFile = transaction.PmtId.TxId,
+      creationDateTime = creationDateTime,
+      transactionIdInSepaFile = transaction.PmtId.TxId,
       instructionId = transaction.PmtId.InstrId,
-      endToEndId = transaction.PmtId.EndToEndId
+      endToEndId = transaction.PmtId.EndToEndId,
+      status = SepaCreditTransferTransactionStatus.PROCESSED
     )
   }
 
   def getById(id: UUID): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.id === id).result.headOption)
 
-  def getBySepaMessageId(sepaMessageId: UUID): Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.sepaMessageId === sepaMessageId).result)
+  def getUnprocessed: Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.status === SepaCreditTransferTransactionStatus.UNPROCESSED).result)
 
-  def getUnprocessed: Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.sepaMessageId.isEmpty).result)
-
+  def getBySepaMessageId(messageId: UUID): Future[Seq[(SepaCreditTransferTransaction, String)]] =
+    Schema.db.run(
+      Schema.sepaTransactionMessages
+        .filter(_.sepaMessageId === messageId)
+        .join(Schema.sepaCreditTransferTransactions)
+        .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
+        .map(a => (a._2, a._1.transactionStatusIdInSepaFile))
+        .result
+    )
 }

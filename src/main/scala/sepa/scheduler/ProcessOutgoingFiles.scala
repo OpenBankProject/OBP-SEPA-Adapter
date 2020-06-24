@@ -4,7 +4,7 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.util.UUID
 
-import model.enums.{SepaFileStatus, SepaFileType, SepaMessageType}
+import model.enums.{SepaCreditTransferTransactionStatus, SepaFileStatus, SepaFileType, SepaMessageType}
 import model.{SepaCreditTransferTransaction, SepaFile}
 import sepa.{CreditTransferMessage, SepaUtil}
 
@@ -41,12 +41,14 @@ object ProcessOutgoingFiles extends App {
         id = creditTransferMessageId,
         creationDateTime = date,
         messageType = sepaMessageType,
-        content = None,
         sepaFileId = Some(outgoingFile.id),
-        idInSepaFile = SepaUtil.removeDashesToUUID(creditTransferMessageId),
-        interbankSettlementDate = Some(date.toLocalDate.plusDays(1)),
+        messageIdInSepaFile = SepaUtil.removeDashesToUUID(creditTransferMessageId),
+        numberOfTransactions = transactions.length,
+        totalAmount = transactions.map(_.amount).sum,
+        settlementDate = Some(date.toLocalDate.plusDays(1)),
         instigatingAgent = None,
         instigatedAgent = None,
+        customFields = None,
         creditTransferTransactions = transactions
       ))
       case _ => Future.failed[CreditTransferMessage](new Exception("No transaction to process"))
@@ -58,7 +60,8 @@ object ProcessOutgoingFiles extends App {
     _ <- Future(XML.save(outgoingFile.path.toString, sctMessage.toXML.head, "UTF-8", xmlDecl = true, null))
     _ <- outgoingFile.insert()
     _ <- sctMessage.insert()
-    _ <- Future(sctMessage.creditTransferTransactions.map(_.copy(sepaMessageId = Some(sctMessage.id)).update()))
+    _ <- Future(sctMessage.creditTransferTransactions.foreach(t => t.linkMessage(sctMessage.id, t.transactionIdInSepaFile)))
+    _ <- Future(sctMessage.creditTransferTransactions.map(_.copy(status = SepaCreditTransferTransactionStatus.PROCESSED).update()))
     _ <- Future(println(s"${sctMessage.creditTransferTransactions.length} transactions accounted in file $fileName"))
   } yield ()
 
