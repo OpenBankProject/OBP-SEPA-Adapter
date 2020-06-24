@@ -21,6 +21,8 @@ case class SepaFile(
                      processedDate: Option[LocalDateTime]
                    ) {
   def insert(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaFiles += this))
+
+  def update(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaFiles.filter(_.id === this.id).update(this)))
 }
 
 object SepaFile {

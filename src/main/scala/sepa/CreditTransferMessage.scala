@@ -76,7 +76,7 @@ object CreditTransferMessage {
     )
   }
 
-  def fromXML(messageId: UUID = UUID.randomUUID(), sepaFileId: UUID, xmlFile: Elem): Try[CreditTransferMessage] = {
+  def fromXML(xmlFile: Elem, messageId: UUID = UUID.randomUUID(), sepaFileId: UUID): Try[CreditTransferMessage] = {
     Try(scalaxb.fromXML[Document](xmlFile)).map(document =>
       CreditTransferMessage(
         id = messageId,

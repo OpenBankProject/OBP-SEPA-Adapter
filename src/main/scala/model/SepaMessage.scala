@@ -38,6 +38,8 @@ object SepaMessage {
 
   def getById(id: UUID): Future[Option[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(_.id === id).result.headOption)
 
+  def getByMessageIdInSepaFile(messageIdInSepaFile: String): Future[Option[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(_.messageIdInSepaFile === messageIdInSepaFile).result.headOption)
+
   def getUnprocessed: Future[Seq[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(message => message.sepaFileId.isEmpty).result)
 
   def getBySepaCreditTransferTransactionId(transactionId: UUID): Future[Seq[SepaMessage]] =
