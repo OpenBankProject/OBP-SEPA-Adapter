@@ -1,6 +1,7 @@
 package adapter
 
-import java.time.{Instant, LocalDateTime}
+import java.time.{Instant, LocalDateTime, ZoneOffset}
+import java.util.concurrent.TimeUnit
 import java.util.{Date, UUID}
 
 import akka.actor.{Actor, ActorLogging, DeadLetter}
@@ -13,15 +14,16 @@ import model.types.Bic
 import sepa.SepaUtil
 
 import scala.collection.immutable.List
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success}
 
 class CbsActor extends Actor with ActorLogging {
 
   val cluster: Cluster = Cluster(context.system)
 
-  override def preStart(): Unit = {
-    cluster.join(self.path.address)
-    context.system.eventStream.subscribe(self, classOf[DeadLetter])
-  }
+  override def preStart(): Unit = cluster.join(self.path.address)
 
   override def postStop(): Unit = cluster.unsubscribe(self)
 
@@ -172,7 +174,7 @@ class CbsActor extends Actor with ActorLogging {
         transaction_ids = creditTransferId.toString,
         status = "COMPLETED",
         start_date = Date.from(Instant.now()),
-        end_date = Date.from(Instant.now()),
+        end_date = null,
         challenge = TransactionRequestChallenge(
           id = UUID.randomUUID().toString,
           allowed_attempts = 3,
@@ -209,6 +211,98 @@ class CbsActor extends Actor with ActorLogging {
       )
       sender ! result
     }
+
+    case OutBoundGetTransactionRequestImpl(callContext, transactionRequestId) =>
+
+      println("getTransactionRequest Received")
+
+      val inboundAdapterCallContext = InboundAdapterCallContext(
+        callContext.correlationId,
+        callContext.sessionId,
+        callContext.generalContext
+      )
+
+      SepaCreditTransferTransaction.getById(UUID.fromString(transactionRequestId.value)).map(_.map(creditTransfer =>
+        creditTransfer
+      ))
+
+      val result = SepaCreditTransferTransaction.getById(UUID.fromString(transactionRequestId.value)).map {
+        case Some(creditTransfer) =>
+          println("transaction found")
+          InBoundGetTransactionRequestImpl(
+            inboundAdapterCallContext = inboundAdapterCallContext,
+            status = successInBoundStatus,
+            data = TransactionRequest(
+              id = TransactionRequestId(creditTransfer.id.toString),
+              `type` = "SEPA",
+              from = TransactionRequestAccount(
+                creditTransfer.debtorAgent.map(_.bic).getOrElse(""),
+                account_id = creditTransfer.debtorAccount.map(_.iban).getOrElse("")
+              ),
+              body = TransactionRequestBodyAllTypes(
+                to_sepa = None,
+                to_sandbox_tan = None,
+                to_counterparty = None,
+                to_transfer_to_phone = None,
+                to_transfer_to_atm = None,
+                to_transfer_to_account = None,
+                to_sepa_credit_transfers = Some(SepaCreditTransfers(
+                  debtorAccount = PaymentAccount(creditTransfer.debtorAccount.map(_.iban).getOrElse("")),
+                  instructedAmount = AmountOfMoneyJsonV121(
+                    currency = "EUR",
+                    amount = creditTransfer.amount.toString()
+                  ),
+                  creditorAccount = PaymentAccount(creditTransfer.creditorAccount.map(_.iban).getOrElse("")),
+                  creditorName = creditTransfer.creditorName.getOrElse("")
+                )),
+                value = AmountOfMoney(
+                  currency = "EUR",
+                  amount = creditTransfer.amount.toString()
+                ),
+                description = creditTransfer.descripton.getOrElse("")
+              ),
+              transaction_ids = creditTransfer.id.toString,
+              status = creditTransfer.status.toString,
+              start_date = Date.from(creditTransfer.creationDateTime.toInstant(ZoneOffset.UTC)),
+              end_date = Date.from(Instant.now()),
+              challenge = TransactionRequestChallenge(
+                id = UUID.randomUUID().toString,
+                allowed_attempts = 3,
+                challenge_type = ""
+              ),
+              charge = TransactionRequestCharge(
+                summary = "Transaction fees",
+                value = AmountOfMoney(
+                  currency = "EUR",
+                  amount = "1"
+                )
+              ),
+              charge_policy = "",
+              counterparty_id = CounterpartyId("Counterpart ID"),
+              name = "Name of the transaction request ?",
+              this_bank_id = BankId(""),
+              this_account_id = AccountId(""),
+              this_view_id = ViewId(""),
+              other_account_routing_scheme = "string",
+              other_account_routing_address = "string",
+              other_bank_routing_scheme = "string",
+              other_bank_routing_address = "string",
+              is_beneficiary = true,
+              future_date = Some("string")
+            )
+          )
+        case None =>
+          InBoundGetTransactionRequestImpl(
+            inboundAdapterCallContext = inboundAdapterCallContext,
+            status = Status(errorCode = "ERROR", List(InboundStatusMessage("SEPA Adapter", "ERROR", "400", "error here"))),
+            data = null
+          )
+      }
+      result.map{
+        println("message sent")
+        sender ! _
+      }
+      Await.result(result, Duration(1, TimeUnit.MINUTES)).wait()
 
     case _ => println(s"Message received but not implemented")
   }

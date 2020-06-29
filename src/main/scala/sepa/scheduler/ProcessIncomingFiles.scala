@@ -18,7 +18,7 @@ import scala.xml.XML
 
 object ProcessIncomingFiles extends App {
 
-  val fileName = "SEPA_SCT_OUT_pacs.008.001.02_2020-06-24_2.xml"
+  val fileName = "SEPA_SCT_OUT_pacs.008.001.02_2020-06-25_2.xml"
 
   val filesToProcess = Seq[File](new File(s"src/main/scala/sepa/$fileName"))
 
@@ -47,6 +47,7 @@ object ProcessIncomingFiles extends App {
               _ <- creditTransferMessage.insert()
               _ <- Future(creditTransferMessage.creditTransferTransactions.map(_.insert()))
               _ <- Future(creditTransferMessage.creditTransferTransactions.map(t => t.linkMessage(creditTransferMessage.id, t.transactionIdInSepaFile)))
+              _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED).update()
             } yield ()
             Await.result(requests, Duration.Inf)
 
