@@ -1,0 +1,94 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02">
+    <FIToFICstmrCdtTrf>
+        <GrpHdr>
+            <MsgId>tht4ht87eg8retr5eg4r5</MsgId>
+            <CreDtTm>2020-06-30T16:57:33.803+02:00</CreDtTm>
+            <NbOfTxs>2</NbOfTxs>
+            <TtlIntrBkSttlmAmt Ccy="EUR">56</TtlIntrBkSttlmAmt>
+            <IntrBkSttlmDt>2020-07-01</IntrBkSttlmDt>
+            <SttlmInf>
+                <SttlmMtd>CLRG</SttlmMtd>
+            </SttlmInf>
+            <PmtTpInf>
+                <SvcLvl>
+                    <Cd>SEPA</Cd>
+                </SvcLvl>
+            </PmtTpInf>
+        </GrpHdr>
+        <CdtTrfTxInf>
+            <PmtId>
+                <EndToEndId>gfdqgfdqgqergegregr</EndToEndId>
+                <TxId>gregregreghregrgerefehtrhtr</TxId>
+            </PmtId>
+            <IntrBkSttlmAmt Ccy="EUR">16</IntrBkSttlmAmt>
+            <ChrgBr>SLEV</ChrgBr>
+            <Dbtr>
+                <Nm>guigo</Nm>
+            </Dbtr>
+            <DbtrAcct>
+                <Id>
+                    <IBAN>DE89370400440532013002</IBAN>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId>
+                    <BIC>NTSBDEB1XXX</BIC>
+                </FinInstnId>
+            </DbtrAgt>
+            <CdtrAgt>
+                <FinInstnId>
+                    <BIC>OBPBDEB1XXX</BIC>
+                </FinInstnId>
+            </CdtrAgt>
+            <Cdtr>
+                <Nm>Guillaume</Nm>
+            </Cdtr>
+            <CdtrAcct>
+                <Id>
+                    <IBAN>DE65500105176582659391</IBAN>
+                </Id>
+            </CdtrAcct>
+            <RmtInf>
+                <Ustrd>a transaction message</Ustrd>
+            </RmtInf>
+        </CdtTrfTxInf>
+        <CdtTrfTxInf>
+            <PmtId>
+                <EndToEndId>guriehgruoeghrugrue</EndToEndId>
+                <TxId>fez9f4ezf8ez78</TxId>
+            </PmtId>
+            <IntrBkSttlmAmt Ccy="EUR">40</IntrBkSttlmAmt>
+            <ChrgBr>SLEV</ChrgBr>
+            <Dbtr>
+                <Nm>Louis Dupont</Nm>
+            </Dbtr>
+            <DbtrAcct>
+                <Id>
+                    <IBAN>FR8114508000409696342262W33</IBAN>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId>
+                    <BIC>BNPAFRPP039</BIC>
+                </FinInstnId>
+            </DbtrAgt>
+            <CdtrAgt>
+                <FinInstnId>
+                    <BIC>OBPBDEB1XXX</BIC>
+                </FinInstnId>
+            </CdtrAgt>
+            <Cdtr>
+                <Nm>guillaume KERGREIS</Nm>
+            </Cdtr>
+            <CdtrAcct>
+                <Id>
+                    <IBAN>DE65500105176582659391</IBAN>
+                </Id>
+            </CdtrAcct>
+            <RmtInf>
+                <Ustrd>Fourty euros</Ustrd>
+            </RmtInf>
+        </CdtTrfTxInf>
+    </FIToFICstmrCdtTrf>
+</Document>

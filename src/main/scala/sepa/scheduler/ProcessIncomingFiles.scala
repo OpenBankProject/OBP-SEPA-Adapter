@@ -6,6 +6,9 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.util.UUID
 
+import adapter._
+import akka.actor.{ActorSystem, Props}
+import com.typesafe.config.ConfigFactory
 import model.SepaFile
 import model.enums.{SepaFileStatus, SepaFileType, SepaMessageType}
 import sepa.CreditTransferMessage
@@ -18,9 +21,16 @@ import scala.xml.XML
 
 object ProcessIncomingFiles extends App {
 
-  val fileName = "SEPA_SCT_OUT_pacs.008.001.02_2020-06-25_2.xml"
+  val fileName = "SEPA_SCT_IN_pacs.008.001.02_2020-06-30_2.xml"
 
   val filesToProcess = Seq[File](new File(s"src/main/scala/sepa/$fileName"))
+
+  val config = ConfigFactory.parseString(s"""
+      akka.remote.netty.tcp.port=0
+      """).withFallback(ConfigFactory.load())
+  val systemName = "OBPSepaAdapter"
+  val system = ActorSystem.create(systemName, config)
+  val obpApiRequestActor = system.actorOf(Props.create(classOf[ObpApiRequestActor]), "obp-api-request-actor")
 
   filesToProcess.foreach(file => {
     val xmlFile = XML.loadFile(file)
@@ -47,6 +57,7 @@ object ProcessIncomingFiles extends App {
               _ <- creditTransferMessage.insert()
               _ <- Future(creditTransferMessage.creditTransferTransactions.map(_.insert()))
               _ <- Future(creditTransferMessage.creditTransferTransactions.map(t => t.linkMessage(creditTransferMessage.id, t.transactionIdInSepaFile)))
+              _ <- Future(creditTransferMessage.creditTransferTransactions.map(t => obpApiRequestActor ! SaveHistoricalTransactionFromCounterparty(t)))
               _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED).update()
             } yield ()
             Await.result(requests, Duration.Inf)

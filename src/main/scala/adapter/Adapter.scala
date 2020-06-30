@@ -11,6 +11,6 @@ object Adapter extends App {
 
   val system = ActorSystem.create(systemName, config)
 
-  system.actorOf(Props.create(classOf[CbsActor]), "akka-connector-actor")
+  system.actorOf(Props.create(classOf[AkkaConnectorActor]), "akka-connector-actor")
 
 }

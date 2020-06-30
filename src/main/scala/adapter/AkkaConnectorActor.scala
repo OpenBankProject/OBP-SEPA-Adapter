@@ -1,25 +1,34 @@
 package adapter
 
-import java.time.{Instant, LocalDateTime, ZoneOffset}
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, LocalDateTime, ZoneId, ZoneOffset}
 import java.util.concurrent.TimeUnit
 import java.util.{Date, UUID}
 
-import akka.actor.{Actor, ActorLogging, DeadLetter}
+import akka.actor.{Actor, ActorLogging}
 import akka.cluster.Cluster
+import akka.http.javadsl.model.headers.ContentType
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.headers.{Authorization, GenericHttpCredentials}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest}
+import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
+import akka.util.ByteString
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
+import io.circe.generic.auto._
+import io.circe.syntax._
 import model.SepaCreditTransferTransaction
 import model.enums.SepaCreditTransferTransactionStatus
 import model.types.Bic
 import sepa.SepaUtil
 
-import scala.collection.immutable.List
+import scala.collection.immutable.{List, Seq}
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
-class CbsActor extends Actor with ActorLogging {
+class AkkaConnectorActor extends Actor with ActorLogging {
 
   val cluster: Cluster = Cluster(context.system)
 
@@ -298,11 +307,94 @@ class CbsActor extends Actor with ActorLogging {
             data = null
           )
       }
-      result.map{
+      result.map {
         println("message sent")
         sender ! _
       }
       Await.result(result, Duration(1, TimeUnit.MINUTES)).wait()
+
+    case OutBoundMakePaymentv210(callContext, fromAccount, toAccount, transactionRequestCommonBody, amount, description, transactionRequestType, chargePolicy) => {
+      println("Make payment message received")
+
+      println(fromAccount)
+      println(toAccount)
+
+      val creditTransferTransactionId = UUID.randomUUID()
+
+      val creditTransferTransaction = SepaCreditTransferTransaction(
+        id = creditTransferTransactionId,
+        amount = amount,
+        debtorName = Some(fromAccount.accountHolder),
+        debtorAccount = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)),
+        debtorAgent = Some(Bic(fromAccount.bankId.value)),
+        creditorName = Some(toAccount.accountHolder),
+        creditorAccount = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)),
+        creditorAgent = Some(Bic(toAccount.bankId.value)),
+        purposeCode = None,
+        descripton = Some(description),
+        creationDateTime = LocalDateTime.now(),
+        transactionIdInSepaFile = SepaUtil.removeDashesToUUID(creditTransferTransactionId),
+        instructionId = None,
+        endToEndId = SepaUtil.removeDashesToUUID(creditTransferTransactionId),
+        status = SepaCreditTransferTransactionStatus.UNPROCESSED
+      )
+
+      creditTransferTransaction.insert()
+
+      val result = InBoundMakePaymentv210(
+        inboundAdapterCallContext = InboundAdapterCallContext(
+          callContext.correlationId,
+          callContext.sessionId,
+          callContext.generalContext
+        ),
+        status = successInBoundStatus,
+        data = TransactionId(creditTransferTransactionId.toString)
+      )
+      sender ! result
+
+      val jsonDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+
+      val saveHistoricalTransactionResponse = Http(context.system).singleRequest(HttpRequest(
+        method = HttpMethods.POST,
+        uri = "http://localhost:8080/obp/v4.0.0/management/historical/transactions",
+        headers = Seq(
+          Authorization(GenericHttpCredentials("DirectLogin", "token=eyJhbGciOiJIUzI1NiJ9.eyIiOiIifQ.3Wlgq06imwoeSDrMYrPRmhG4v3A2qBOBvPkbKnfm0gY"))
+        ),
+        entity = HttpEntity(
+          contentType = ContentTypes.`application/json`,
+          HistoricalTransactionJson(
+            from = CustomerAccountReference(
+              account_iban = creditTransferTransaction.debtorAccount.map(_.iban).getOrElse(""),
+              bank_bic = creditTransferTransaction.debtorAgent.map(_.bic)
+            ).asJson,
+            to = CounterpartyAccountReference(
+              counterparty_iban = creditTransferTransaction.creditorAccount.map(_.iban).getOrElse(""),
+              bank_bic = creditTransferTransaction.creditorAgent.map(_.bic),
+              counterparty_name = creditTransferTransaction.creditorName
+            ).asJson,
+            value = AmountOfMoney(
+              currency = transactionRequestCommonBody.value.currency,
+              amount = creditTransferTransaction.amount.toString
+            ).asJson,
+            description = creditTransferTransaction.descripton.getOrElse(""),
+            posted = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
+            completed = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
+            `type` = transactionRequestType.value,
+            charge_policy = chargePolicy
+          ).asJson.toString()
+        )
+      ))
+
+      implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
+
+      saveHistoricalTransactionResponse.onComplete {
+        case Success(res) => res.entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach(body =>
+          log.info(body.utf8String))
+        case Failure(exception) => sys.error(exception.getMessage)
+      }
+
+    }
+
 
     case _ => println(s"Message received but not implemented")
   }
