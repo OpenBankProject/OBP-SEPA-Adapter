@@ -50,7 +50,7 @@
                 </Id>
             </CdtrAcct>
             <RmtInf>
-                <Ustrd>a transaction message</Ustrd>
+                <Ustrd>A transaction message</Ustrd>
             </RmtInf>
         </CdtTrfTxInf>
         <CdtTrfTxInf>
@@ -88,6 +88,43 @@
             </CdtrAcct>
             <RmtInf>
                 <Ustrd>Fourty euros</Ustrd>
+            </RmtInf>
+        </CdtTrfTxInf>
+        <CdtTrfTxInf>
+            <PmtId>
+                <EndToEndId>grfe1g6re5regre89g7</EndToEndId>
+                <TxId>greg256z54ezr5ez789</TxId>
+            </PmtId>
+            <IntrBkSttlmAmt Ccy="EUR">666</IntrBkSttlmAmt>
+            <ChrgBr>SLEV</ChrgBr>
+            <Dbtr>
+                <Nm>Satan Devil</Nm>
+            </Dbtr>
+            <DbtrAcct>
+                <Id>
+                    <IBAN>NL66666666666666666666</IBAN>
+                </Id>
+            </DbtrAcct>
+            <DbtrAgt>
+                <FinInstnId>
+                    <BIC>DBNKNLSATAN</BIC>
+                </FinInstnId>
+            </DbtrAgt>
+            <CdtrAgt>
+                <FinInstnId>
+                    <BIC>OBPBDEB1XXX</BIC>
+                </FinInstnId>
+            </CdtrAgt>
+            <Cdtr>
+                <Nm>Paul Smith</Nm>
+            </Cdtr>
+            <CdtrAcct>
+                <Id>
+                    <IBAN>DE65500105176582659390</IBAN>
+                </Id>
+            </CdtrAcct>
+            <RmtInf>
+                <Ustrd>Make a wish</Ustrd>
             </RmtInf>
         </CdtTrfTxInf>
     </FIToFICstmrCdtTrf>
