@@ -10,6 +10,7 @@ import io.circe.{Json, JsonObject, parser}
 import model.enums.SepaCreditTransferTransactionStatus.SepaCreditTransferTransactionStatus
 import model.enums.SepaFileStatus.SepaFileStatus
 import model.enums.SepaFileType.SepaFileType
+import model.enums.SepaMessageStatus.SepaMessageStatus
 import model.enums.SepaMessageType.SepaMessageType
 import model.enums._
 import model.types.Bic
@@ -23,14 +24,15 @@ object Schema {
 
   val db = Database.forConfig("databaseConfig")
 
-  implicit lazy val ibanColumnType: JdbcType[Iban] with BaseTypedType[Iban] = MappedColumnType.base[Iban, String](_.iban, Iban)
-  implicit lazy val bicColumnType: JdbcType[Bic] with BaseTypedType[Bic] = MappedColumnType.base[Bic, String](_.bic, Bic)
-  implicit lazy val pathColumnType: JdbcType[Path] with BaseTypedType[Path] = MappedColumnType.base[Path, String](_.toString, Path.of(_:String))
+  implicit lazy val ibanColumnType = MappedColumnType.base[Iban, String](_.iban, Iban)
+  implicit lazy val bicColumnType = MappedColumnType.base[Bic, String](_.bic, Bic)
+  implicit lazy val pathColumnType = MappedColumnType.base[Path, String](_.toString, Path.of(_:String))
   implicit lazy val jsonColumnType = MappedColumnType.base[Json, String](_.toString(), parser.parse(_).toOption.orNull)
 
   implicit lazy val sepaFileTypeColumnType = MappedColumnType.base[SepaFileType, String](_.toString, SepaFileType.withName)
   implicit lazy val sepaFileStatusColumnType = MappedColumnType.base[SepaFileStatus, String](_.toString, SepaFileStatus.withName)
   implicit lazy val sepaMessageTypeColumnType = MappedColumnType.base[SepaMessageType, String](_.toString, SepaMessageType.withName)
+  implicit lazy val sepaMessageStatusColumnType = MappedColumnType.base[SepaMessageStatus, String](_.toString, SepaMessageStatus.withName)
   implicit lazy val sepaCreditTransferTransactionStatusColumnType = MappedColumnType.base[SepaCreditTransferTransactionStatus, String](_.toString, SepaCreditTransferTransactionStatus.withName)
 
   class SepaFiles(tag: Tag) extends Table[SepaFile](tag, "sepa_file") {
@@ -50,6 +52,7 @@ object Schema {
     def id = column[UUID]("id", O.PrimaryKey)
     def creationDateTime = column[LocalDateTime]("creation_date_time")
     def messageType = column[SepaMessageType]("type")
+    def status = column[SepaMessageStatus]("status")
     def sepaFileId = column[Option[UUID]]("sepa_file_id")
     def messageIdInSepaFile = column[String]("message_id_in_sepa_file")
     def numberOfTransactions = column[Int]("number_of_transactions")
@@ -58,7 +61,7 @@ object Schema {
     def instigatingAgent = column[Option[Bic]]("instigating_agent")
     def instigatedAgent = column[Option[Bic]]("instigated_agent")
     def customFields = column[Option[Json]]("custom_fields")
-    def * = (id, creationDateTime, messageType, sepaFileId, messageIdInSepaFile, numberOfTransactions, totalAmount, settlementDate, instigatingAgent, instigatedAgent, customFields) <> (SepaMessage.tupled, SepaMessage.unapply)
+    def * = (id :: creationDateTime :: messageType :: status :: sepaFileId :: messageIdInSepaFile :: numberOfTransactions :: totalAmount :: settlementDate :: instigatingAgent :: instigatedAgent :: customFields :: HNil).mappedWith(Generic[SepaMessage])
 
     def sepaFile = foreignKey("sepa_message_sepa_file_id_fkey", sepaFileId, sepaFiles)(_.id)
   }
@@ -88,7 +91,9 @@ object Schema {
     def sepaCreditTransferTransactionId = column[UUID]("sepa_credit_transfer_transaction_id")
     def sepaMessageId = column[UUID]("sepa_message_id")
     def transactionStatusIdInSepaFile = column[String]("transaction_status_id_in_sepa_file")
-    def * = (sepaCreditTransferTransactionId :: sepaMessageId :: transactionStatusIdInSepaFile :: HNil).mappedWith(Generic[SepaTransactionMessage])
+    def obpTransactionRequestId = column[Option[UUID]]("obp_transaction_request_id")
+    def obpTransactionId = column[Option[UUID]]("obp_transaction_id")
+    def * = (sepaCreditTransferTransactionId :: sepaMessageId :: transactionStatusIdInSepaFile :: obpTransactionRequestId :: obpTransactionId :: HNil).mappedWith(Generic[SepaTransactionMessage])
   }
   val sepaTransactionMessages = TableQuery[SepaTransactionMessages]
 

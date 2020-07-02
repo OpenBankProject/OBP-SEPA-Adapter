@@ -5,6 +5,5 @@ object SepaCreditTransferTransactionStatus extends Enumeration {
 
   val PROCESSED: SepaCreditTransferTransactionStatus.Value = Value
   val UNPROCESSED: SepaCreditTransferTransactionStatus.Value = Value
-  val PROCESSING_IN_PROGRESS: SepaCreditTransferTransactionStatus.Value = Value
   val PROCESSING_ERROR: SepaCreditTransferTransactionStatus.Value = Value
 }

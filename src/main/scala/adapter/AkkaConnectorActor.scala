@@ -1,13 +1,12 @@
 package adapter
 
 import java.time.format.DateTimeFormatter
-import java.time.{Instant, LocalDateTime, ZoneId, ZoneOffset}
+import java.time.{Instant, LocalDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
 import java.util.{Date, UUID}
 
 import akka.actor.{Actor, ActorLogging}
 import akka.cluster.Cluster
-import akka.http.javadsl.model.headers.ContentType
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{Authorization, GenericHttpCredentials}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest}
@@ -16,10 +15,11 @@ import akka.util.ByteString
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
 import io.circe.generic.auto._
+import io.circe.parser
 import io.circe.syntax._
-import model.SepaCreditTransferTransaction
-import model.enums.SepaCreditTransferTransactionStatus
+import model.enums.{SepaCreditTransferTransactionStatus, SepaMessageStatus, SepaMessageType}
 import model.types.Bic
+import model.{SepaCreditTransferTransaction, SepaMessage}
 import sepa.SepaUtil
 
 import scala.collection.immutable.{List, Seq}
@@ -37,7 +37,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
   override def postStop(): Unit = cluster.unsubscribe(self)
 
   def receive: Receive = {
-    case OutBoundGetAdapterInfo(callContext) => {
+    case OutBoundGetAdapterInfo(callContext) =>
       val result = InBoundGetAdapterInfo(
         inboundAdapterCallContext = InboundAdapterCallContext(
           callContext.correlationId,
@@ -48,9 +48,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
         data = InboundAdapterInfoInternal("", Nil, "Adapter-Akka-CBS", "Jun2020", APIUtil.gitCommit, new Date().toString)
       )
       sender ! result
-    }
 
-    case OutBoundGetBanks(callContext) => {
+    case OutBoundGetBanks(callContext) =>
       val result = InBoundGetBanks(
         inboundAdapterCallContext = InboundAdapterCallContext(
           callContext.correlationId,
@@ -71,9 +70,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
         )
         ))
       sender ! result
-    }
 
-    case OutBoundGetBank(callContext, bankId) => {
+    case OutBoundGetBank(callContext, bankId) =>
       val result = InBoundGetBank(
         inboundAdapterCallContext = InboundAdapterCallContext(
           callContext.correlationId,
@@ -94,9 +92,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
         )
       )
       sender ! result
-    }
 
-    case OutBoundGetBankAccount(callContext, bankId, accountId) => {
+    case OutBoundGetBankAccount(callContext, bankId, accountId) =>
       val result = InBoundGetBankAccount(
         inboundAdapterCallContext = InboundAdapterCallContext(
           callContext.correlationId,
@@ -124,9 +121,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
         )
       )
       sender ! result
-    }
 
-    case OutBoundCreateTransactionRequestv400(callContext, initiator, viewId, fromAccount, toAccount, transactionRequestType, transactionRequestCommonBody, detailsPlain, chargePolicy, challengeType, scaMethod) => {
+    case OutBoundCreateTransactionRequestv400(callContext, initiator, viewId, fromAccount, toAccount, transactionRequestType, transactionRequestCommonBody, detailsPlain, chargePolicy, challengeType, scaMethod) =>
       println("transaction request received")
 
       val creditTransferId = UUID.randomUUID()
@@ -219,7 +215,6 @@ class AkkaConnectorActor extends Actor with ActorLogging {
         data = transactionRequest
       )
       sender ! result
-    }
 
     case OutBoundGetTransactionRequestImpl(callContext, transactionRequestId) =>
 
@@ -313,11 +308,10 @@ class AkkaConnectorActor extends Actor with ActorLogging {
       }
       Await.result(result, Duration(1, TimeUnit.MINUTES)).wait()
 
-    case OutBoundMakePaymentv210(callContext, fromAccount, toAccount, transactionRequestCommonBody, amount, description, transactionRequestType, chargePolicy) => {
+    case OutBoundMakePaymentv210(callContext, fromAccount, toAccount, transactionRequestId, transactionRequestCommonBody, amount, description, transactionRequestType, chargePolicy) =>
       println("Make payment message received")
 
-      println(fromAccount)
-      println(toAccount)
+      val obpAkkaConnector = sender
 
       val creditTransferTransactionId = UUID.randomUUID()
 
@@ -339,26 +333,13 @@ class AkkaConnectorActor extends Actor with ActorLogging {
         status = SepaCreditTransferTransactionStatus.UNPROCESSED
       )
 
-      creditTransferTransaction.insert()
-
-      val result = InBoundMakePaymentv210(
-        inboundAdapterCallContext = InboundAdapterCallContext(
-          callContext.correlationId,
-          callContext.sessionId,
-          callContext.generalContext
-        ),
-        status = successInBoundStatus,
-        data = TransactionId(creditTransferTransactionId.toString)
-      )
-      sender ! result
-
       val jsonDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
 
       val saveHistoricalTransactionResponse = Http(context.system).singleRequest(HttpRequest(
         method = HttpMethods.POST,
         uri = "http://localhost:8080/obp/v4.0.0/management/historical/transactions",
         headers = Seq(
-          Authorization(GenericHttpCredentials("DirectLogin", "token=eyJhbGciOiJIUzI1NiJ9.eyIiOiIifQ.3Wlgq06imwoeSDrMYrPRmhG4v3A2qBOBvPkbKnfm0gY"))
+          Authorization(GenericHttpCredentials("DirectLogin", "token=eyJhbGciOiJIUzI1NiJ9.eyIiOiIifQ.CeA_QUnsF4xBScAYy3ZtK64f7uE28nHbXSFoAlodUQM"))
         ),
         entity = HttpEntity(
           contentType = ContentTypes.`application/json`,
@@ -388,12 +369,52 @@ class AkkaConnectorActor extends Actor with ActorLogging {
       implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
 
       saveHistoricalTransactionResponse.onComplete {
-        case Success(res) => res.entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach(body =>
-          log.info(body.utf8String))
+        case Success(res) =>
+          res.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(body => body.utf8String).map(response => {
+            parser.parse(response).map(jsonResult => {
+              println(jsonResult)
+              (jsonResult \\ "transaction_id").headOption.flatMap(_.asString).map(createdTransactionId => {
+                creditTransferTransaction.insert()
+                val unprocessedCreditTransferMessage = SepaMessage.getUnprocessedByType(SepaMessageType.B2B_CREDIT_TRANSFER)
+                  .map(_.headOption.getOrElse {
+                    val sepaMessageId = UUID.randomUUID()
+                    val message = SepaMessage(
+                      sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_CREDIT_TRANSFER,
+                      SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
+                      numberOfTransactions = 0, totalAmount = 0, None, None, None, None
+                    )
+                    message.insert()
+                    message
+                  })
+                unprocessedCreditTransferMessage.onComplete {
+                  case Success(message) => creditTransferTransaction.linkMessage(
+                    sepaMessageId = message.id,
+                    transactionStatusIdInSepaFile = creditTransferTransaction.transactionIdInSepaFile,
+                    obpTransactionRequestId = Some(UUID.fromString(transactionRequestId.value)),
+                    obpTransactionId = Some(UUID.fromString(createdTransactionId))
+                  )
+                    message.copy(
+                      numberOfTransactions = message.numberOfTransactions + 1,
+                      totalAmount = message.totalAmount + creditTransferTransaction.amount
+                    ).update()
+                  case Failure(exception) => log.error(exception.getMessage)
+                }
+
+                val result = InBoundMakePaymentv210(
+                  inboundAdapterCallContext = InboundAdapterCallContext(
+                    callContext.correlationId,
+                    callContext.sessionId,
+                    callContext.generalContext
+                  ),
+                  status = successInBoundStatus,
+                  data = TransactionId(createdTransactionId)
+                )
+                obpAkkaConnector ! result
+              })
+            })
+          })
         case Failure(exception) => sys.error(exception.getMessage)
       }
-
-    }
 
 
     case _ => println(s"Message received but not implemented")

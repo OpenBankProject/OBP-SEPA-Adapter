@@ -24,7 +24,7 @@
             <IntrBkSttlmAmt Ccy="EUR">16</IntrBkSttlmAmt>
             <ChrgBr>SLEV</ChrgBr>
             <Dbtr>
-                <Nm>guigo</Nm>
+                <Nm>Arthur Millet</Nm>
             </Dbtr>
             <DbtrAcct>
                 <Id>
@@ -61,7 +61,7 @@
             <IntrBkSttlmAmt Ccy="EUR">40</IntrBkSttlmAmt>
             <ChrgBr>SLEV</ChrgBr>
             <Dbtr>
-                <Nm>Louis Dupont</Nm>
+                <Nm>Paul Jehanno</Nm>
             </Dbtr>
             <DbtrAcct>
                 <Id>

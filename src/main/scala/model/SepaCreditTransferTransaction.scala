@@ -38,8 +38,17 @@ case class SepaCreditTransferTransaction(
 
   def update(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions.filter(_.id === this.id).update(this)))
 
-  def linkMessage(messageId: UUID, transactionStatusIdInSepaFile: String): Future[Unit] = Schema.db.run(
-    DBIOAction.seq(Schema.sepaTransactionMessages += SepaTransactionMessage(this.id, messageId, transactionStatusIdInSepaFile))
+  def linkMessage(sepaMessageId: UUID, transactionStatusIdInSepaFile: String, obpTransactionRequestId: Option[UUID], obpTransactionId: Option[UUID]): Future[Unit] = Schema.db.run(
+    DBIOAction.seq(Schema.sepaTransactionMessages += SepaTransactionMessage(this.id, sepaMessageId, transactionStatusIdInSepaFile, obpTransactionRequestId, obpTransactionId))
+  )
+
+  def updateMessageLink(sepaMessageId: UUID, transactionStatusIdInSepaFile: String, obpTransactionRequestId: Option[UUID], obpTransactionId: Option[UUID]): Future[Unit] = Schema.db.run(
+    DBIOAction.seq(
+      Schema.sepaTransactionMessages
+        .filter(transactionMessage => transactionMessage.sepaCreditTransferTransactionId === this.id && transactionMessage.sepaMessageId === sepaMessageId)
+        .map(transactionMessage => (transactionMessage.transactionStatusIdInSepaFile, transactionMessage.obpTransactionRequestId, transactionMessage.obpTransactionId))
+        .update((transactionStatusIdInSepaFile, obpTransactionRequestId, obpTransactionId))
+    )
   )
 
   def toXML: NodeSeq = {
@@ -81,11 +90,11 @@ object SepaCreditTransferTransaction {
       creditorAgent = transaction.CdtrAgt.FinInstnId.BIC.map(Bic),
       purposeCode = transaction.Purp.map(_.purpose2choicableoption.value),
       descripton = transaction.RmtInf.flatMap(_.Ustrd.headOption),
-      creationDateTime = creationDateTime,
+      creationDateTime = LocalDateTime.now(),
       transactionIdInSepaFile = transaction.PmtId.TxId,
       instructionId = transaction.PmtId.InstrId,
       endToEndId = transaction.PmtId.EndToEndId,
-      status = SepaCreditTransferTransactionStatus.PROCESSED
+      status = SepaCreditTransferTransactionStatus.UNPROCESSED
     )
   }
 

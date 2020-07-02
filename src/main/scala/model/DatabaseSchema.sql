@@ -14,6 +14,7 @@ CREATE TABLE sepa_message
     id                      uuid PRIMARY KEY,
     creation_date_time      timestamp,
     type                    varchar,
+    status                  varchar,
     sepa_file_id            uuid REFERENCES sepa_file (id),
     message_id_in_sepa_file varchar,
     number_of_transactions  integer,
@@ -47,5 +48,7 @@ CREATE TABLE sepa_transaction_message
 (
     sepa_credit_transfer_transaction_id uuid REFERENCES sepa_credit_transfer_transaction (id),
     sepa_message_id                     uuid REFERENCES sepa_message (id),
-    transaction_status_id_in_sepa_file  varchar
+    transaction_status_id_in_sepa_file  varchar,
+    obp_transaction_request_id          uuid,
+    obp_transaction_id                  uuid
 );
