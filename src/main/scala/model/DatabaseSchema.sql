@@ -41,7 +41,8 @@ CREATE TABLE sepa_credit_transfer_transaction
     transaction_id_in_sepa_file varchar,
     instruction_id              varchar,
     end_to_end_id               varchar,
-    status                      varchar
+    status                      varchar,
+    custom_fields               varchar
 );
 
 CREATE TABLE sepa_transaction_message

@@ -4,6 +4,7 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 import com.openbankproject.commons.model.Iban
+import io.circe.Json
 import model.Schema.sepaCreditTransferTransactionStatusColumnType
 import model.enums.SepaCreditTransferTransactionStatus
 import model.enums.SepaCreditTransferTransactionStatus.SepaCreditTransferTransactionStatus
@@ -32,7 +33,8 @@ case class SepaCreditTransferTransaction(
                                           transactionIdInSepaFile: String,
                                           instructionId: Option[String],
                                           endToEndId: String,
-                                          status: SepaCreditTransferTransactionStatus
+                                          status: SepaCreditTransferTransactionStatus,
+                                          customFields: Option[Json]
                                         ) {
   def insert(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions += this))
 
@@ -94,13 +96,24 @@ object SepaCreditTransferTransaction {
       transactionIdInSepaFile = transaction.PmtId.TxId,
       instructionId = transaction.PmtId.InstrId,
       endToEndId = transaction.PmtId.EndToEndId,
-      status = SepaCreditTransferTransactionStatus.UNPROCESSED
+      status = SepaCreditTransferTransactionStatus.UNPROCESSED,
+      customFields = None
     )
   }
 
   def getById(id: UUID): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.id === id).result.headOption)
 
   def getByTransactionIdInSepaFile(transactionIdInSepaFile: String): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.transactionIdInSepaFile === transactionIdInSepaFile).result.headOption)
+
+  def getByTransactionStatusIdInSepaFile(transactionStatusIdInSepaFile: String): Future[Option[SepaCreditTransferTransaction]] =
+    Schema.db.run(
+      Schema.sepaTransactionMessages
+          .filter(_.transactionStatusIdInSepaFile === transactionStatusIdInSepaFile)
+          .join(Schema.sepaCreditTransferTransactions)
+          .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
+          .map(_._2)
+          .result.headOption
+    )
 
   def getUnprocessed: Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.status === SepaCreditTransferTransactionStatus.UNPROCESSED).result)
 

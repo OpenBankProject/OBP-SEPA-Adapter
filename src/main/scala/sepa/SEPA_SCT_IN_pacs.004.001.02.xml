@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.004.001.02">
+    <PmtRtr>
+        <GrpHdr>
+            <MsgId>ggfgfdsgazzaez</MsgId>
+            <CreDtTm>2020-07-06T16:18:32.077+02:00</CreDtTm>
+            <NbOfTxs>1</NbOfTxs>
+            <TtlRtrdIntrBkSttlmAmt Ccy="EUR">10</TtlRtrdIntrBkSttlmAmt>
+            <IntrBkSttlmDt>2020-07-07</IntrBkSttlmDt>
+            <SttlmInf>
+                <SttlmMtd>CLRG</SttlmMtd>
+            </SttlmInf>
+        </GrpHdr>
+        <OrgnlGrpInf>
+            <OrgnlMsgId>fezfezfez</OrgnlMsgId>
+            <OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
+        </OrgnlGrpInf>
+        <TxInf>
+            <RtrId>fezfezfezggrgre</RtrId>
+            <OrgnlEndToEndId>gfdgfsbvfvfv</OrgnlEndToEndId>
+            <OrgnlTxId>vcxbxvbvxcbvxcbvxcb</OrgnlTxId>
+            <OrgnlIntrBkSttlmAmt Ccy="EUR">10</OrgnlIntrBkSttlmAmt>
+            <RtrdIntrBkSttlmAmt Ccy="EUR">10</RtrdIntrBkSttlmAmt>
+            <ChrgBr>SLEV</ChrgBr>
+            <RtrRsnInf>
+                <Orgtr>
+                    <Id>
+                        <OrgId>
+                            <BICOrBEI>NTSBDEB1XXX</BICOrBEI>
+                        </OrgId>
+                    </Id>
+                </Orgtr>
+                <Rsn>
+                    <Cd>AC01</Cd>
+                </Rsn>
+            </RtrRsnInf>
+            <OrgnlTxRef>
+                <RmtInf>
+                    <Ustrd>Test transaction description</Ustrd>
+                </RmtInf>
+                <Dbtr>
+                    <Nm>guillaume</Nm>
+                </Dbtr>
+                <DbtrAcct>
+                    <Id>
+                        <IBAN>DE65500105176582659397</IBAN>
+                    </Id>
+                </DbtrAcct>
+                <DbtrAgt>
+                    <FinInstnId>
+                        <BIC>OBPBDEB1XXX</BIC>
+                    </FinInstnId>
+                </DbtrAgt>
+                <CdtrAgt>
+                    <FinInstnId>
+                        <BIC>NTSBDEB1XXX</BIC>
+                    </FinInstnId>
+                </CdtrAgt>
+                <Cdtr>
+                    <Nm>Louis Dupont</Nm>
+                </Cdtr>
+                <CdtrAcct>
+                    <Id>
+                        <IBAN>DE89370400440532013002</IBAN>
+                    </Id>
+                </CdtrAcct>
+            </OrgnlTxRef>
+        </TxInf>
+    </PmtRtr>
+</Document>

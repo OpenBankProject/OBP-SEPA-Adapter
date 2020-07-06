@@ -54,18 +54,18 @@ object CreditTransferMessage {
     )
   }
 
-  def fromXML(xmlFile: Elem, messageId: UUID = UUID.randomUUID(), sepaFileId: UUID): Try[CreditTransferMessage] = {
+  def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[CreditTransferMessage] = {
     Try(scalaxb.fromXML[Document](xmlFile)).map(document =>
       CreditTransferMessage(
         SepaMessage(
-          id = messageId,
+          id = UUID.randomUUID(),
           creationDateTime = document.FIToFICstmrCdtTrf.GrpHdr.CreDtTm.toGregorianCalendar.toZonedDateTime.toLocalDateTime,
           messageType = SepaMessageType.B2B_CREDIT_TRANSFER,
           status = SepaMessageStatus.PROCESSING_IN_PROGRESS,
           sepaFileId = Some(sepaFileId),
           messageIdInSepaFile = document.FIToFICstmrCdtTrf.GrpHdr.MsgId,
           numberOfTransactions = document.FIToFICstmrCdtTrf.GrpHdr.NbOfTxs.toInt,
-          totalAmount = document.FIToFICstmrCdtTrf.CdtTrfTxInf.map(_.IntrBkSttlmAmt.value).sum,
+          totalAmount = document.FIToFICstmrCdtTrf.GrpHdr.TtlIntrBkSttlmAmt.map(_.value).getOrElse(document.FIToFICstmrCdtTrf.CdtTrfTxInf.map(_.IntrBkSttlmAmt.value).sum),
           settlementDate = document.FIToFICstmrCdtTrf.GrpHdr.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate),
           instigatingAgent = document.FIToFICstmrCdtTrf.GrpHdr.InstgAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
           instigatedAgent = document.FIToFICstmrCdtTrf.GrpHdr.InstdAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
