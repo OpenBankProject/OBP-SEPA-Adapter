@@ -28,13 +28,14 @@ case class SepaCreditTransferTransaction(
                                           creditorAccount: Option[Iban],
                                           creditorAgent: Option[Bic],
                                           purposeCode: Option[String],
-                                          descripton: Option[String],
+                                          description: Option[String],
                                           creationDateTime: LocalDateTime,
                                           transactionIdInSepaFile: String,
                                           instructionId: Option[String],
                                           endToEndId: String,
                                           status: SepaCreditTransferTransactionStatus,
                                           customFields: Option[Json]
+                                          // TODO : Add fields settlementDate, settlementInformation, paymentInformation, ...
                                         ) {
   def insert(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions += this))
 
@@ -73,7 +74,7 @@ case class SepaCreditTransferTransaction(
       CdtrAcct = creditorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
       CdtrAgt = BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = creditorAgent.map(_.bic))),
       Purp = purposeCode.map(purposeCode => Purpose2Choice(DataRecord(<Cd></Cd>, purposeCode))),
-      RmtInf = descripton.map(description => RemittanceInformation5(Ustrd = Seq(description)))
+      RmtInf = description.map(description => RemittanceInformation5(Ustrd = Seq(description)))
     )
     scalaxb.toXML[CreditTransferTransactionInformation11](xmlTransaction, "", defaultScope)
   }
@@ -91,7 +92,7 @@ object SepaCreditTransferTransaction {
       creditorAccount = transaction.CdtrAcct.map(a => Iban(a.Id.accountidentification4choicableoption.value.toString)),
       creditorAgent = transaction.CdtrAgt.FinInstnId.BIC.map(Bic),
       purposeCode = transaction.Purp.map(_.purpose2choicableoption.value),
-      descripton = transaction.RmtInf.flatMap(_.Ustrd.headOption),
+      description = transaction.RmtInf.flatMap(_.Ustrd.headOption),
       creationDateTime = LocalDateTime.now(),
       transactionIdInSepaFile = transaction.PmtId.TxId,
       instructionId = transaction.PmtId.InstrId,
@@ -108,11 +109,11 @@ object SepaCreditTransferTransaction {
   def getByTransactionStatusIdInSepaFile(transactionStatusIdInSepaFile: String): Future[Option[SepaCreditTransferTransaction]] =
     Schema.db.run(
       Schema.sepaTransactionMessages
-          .filter(_.transactionStatusIdInSepaFile === transactionStatusIdInSepaFile)
-          .join(Schema.sepaCreditTransferTransactions)
-          .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
-          .map(_._2)
-          .result.headOption
+        .filter(_.transactionStatusIdInSepaFile === transactionStatusIdInSepaFile)
+        .join(Schema.sepaCreditTransferTransactions)
+        .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
+        .map(_._2)
+        .result.headOption
     )
 
   def getUnprocessed: Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.status === SepaCreditTransferTransactionStatus.UNPROCESSED).result)

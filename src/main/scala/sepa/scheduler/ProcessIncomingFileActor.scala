@@ -217,7 +217,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             currency = "EUR",
             amount = creditTransferTransaction.amount.toString
           ).asJson,
-          description = creditTransferTransaction.descripton.getOrElse(""),
+          description = creditTransferTransaction.description.getOrElse(""),
           posted = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
           completed = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
           `type` = "SEPA",
@@ -281,7 +281,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             currency = "EUR",
             amount = returnedCreditTransferTransaction.amount.toString
           ).asJson,
-          description = s"TRANSACTION ${returnType + "ED"}. Original description : " + returnedCreditTransferTransaction.descripton.getOrElse(""),
+          description = s"TRANSACTION ${returnType + "ED"}. Original description : " + returnedCreditTransferTransaction.description.getOrElse(""),
           posted = LocalDateTime.now.format(jsonDateTimeFormatter),
           completed = LocalDateTime.now.format(jsonDateTimeFormatter),
           `type` = "SEPA",

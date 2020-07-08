@@ -36,7 +36,7 @@ CREATE TABLE sepa_credit_transfer_transaction
     creditor_account            varchar,
     creditor_agent              varchar,
     purpose_code                varchar,
-    descripton                  varchar,
+    description                  varchar,
     creation_date_time          timestamp,
     transaction_id_in_sepa_file varchar,
     instruction_id              varchar,

@@ -66,7 +66,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
         creditorAccount = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)),
         creditorAgent = Some(Bic(toAccount.bankId.value)),
         purposeCode = None,
-        descripton = Some(description),
+        description = Some(description),
         creationDateTime = LocalDateTime.now(),
         transactionIdInSepaFile = SepaUtil.removeDashesToUUID(creditTransferTransactionId),
         instructionId = None,
@@ -99,7 +99,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               currency = transactionRequestCommonBody.value.currency,
               amount = creditTransferTransaction.amount.toString
             ).asJson,
-            description = creditTransferTransaction.descripton.getOrElse(""),
+            description = creditTransferTransaction.description.getOrElse(""),
             posted = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
             completed = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
             `type` = transactionRequestType.value,

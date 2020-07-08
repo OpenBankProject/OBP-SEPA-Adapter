@@ -77,13 +77,13 @@ case class PaymentReturnMessage(
               IntrBkSttlmDt = None, // TODO : Maybe add the interbank settlement date in the transaction
               SttlmInf = None, // TODO : Same
               PmtTpInf = None, // TODO : Same
-              RmtInf = transaction._1.descripton.map(description => RemittanceInformation5(Ustrd = Seq(description))),
+              RmtInf = transaction._1.description.map(description => RemittanceInformation5(Ustrd = Seq(description))),
               Dbtr = transaction._1.debtorName.map(name => PartyIdentification32(Nm = Some(name))),
               DbtrAcct = transaction._1.debtorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
               DbtrAgt = transaction._1.debtorAgent.map(debtorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(debtorAgent.bic)))),
               Cdtr = transaction._1.creditorName.map(name => PartyIdentification32(Nm = Some(name))),
               CdtrAcct = transaction._1.creditorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
-              CdtrAgt = transaction._1.creditorAgent.map(creditorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(creditorAgent.bic)))),
+              CdtrAgt = transaction._1.creditorAgent.map(creditorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(creditorAgent.bic))))
             ))
           )
         )
