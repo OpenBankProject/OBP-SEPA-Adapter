@@ -4,23 +4,23 @@ import java.nio.file.Path
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
-import model.enums.AccountStatus.AccountStatus
-import model.enums.AccountType.AccountType
-import model.enums.CardPaymentNetwork.CardPaymentNetwork
-import model.enums.CardPaymentStatus.CardPaymentStatus
-import model.enums.CardRange.CardRange
-import model.enums.CardStatus.CardStatus
-import model.enums.CardType.CardType
-import model.enums.CoreBankingFileStatus.CoreBankingFileStatus
-import model.enums.CoreBankingFileType.CoreBankingFileType
-import model.enums.SDDMandateStatus.SDDMandateStatus
-import model.enums.SDDMandateType.SDDMandateType
-import model.enums.TransactionStatus.TransactionStatus
-import model.enums.TransactionType.TransactionType
+import model.archives.enums.AccountStatus.AccountStatus
+import model.archives.enums.AccountType.AccountType
+import model.archives.enums.CardPaymentNetwork.CardPaymentNetwork
+import model.archives.enums.CardPaymentStatus.CardPaymentStatus
+import model.archives.enums.CardRange.CardRange
+import model.archives.enums.CardStatus.CardStatus
+import model.archives.enums.CardType.CardType
+import model.archives.enums.CoreBankingFileStatus.CoreBankingFileStatus
+import model.archives.enums.CoreBankingFileType.CoreBankingFileType
+import model.archives.enums.SDDMandateStatus.SDDMandateStatus
+import model.archives.enums.SDDMandateType.SDDMandateType
+import model.archives.enums.TransactionStatus.TransactionStatus
+import model.archives.enums.TransactionType.TransactionType
 import model.enums._
 import model.types.{Bic, Iban}
-
 import _root_.slick.jdbc.JdbcType
+import model.archives.enums.{AccountStatus, AccountType, CardPaymentNetwork, CardPaymentStatus, CardRange, CardStatus, CardType, CoreBankingFileStatus, CoreBankingFileType, SDDMandateStatus, SDDMandateType, TransactionStatus, TransactionType}
 import slick.ast.BaseTypedType
 import slick.jdbc.PostgresProfile.api._
 import shapeless.{Generic, HNil}

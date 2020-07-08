@@ -46,7 +46,7 @@ object ProcessIncomingFilesActorSystem extends App {
 
     messageType match {
       case SepaMessageType.B2B_CREDIT_TRANSFER => processIncomingFileActor ! ProcessIncomingCreditTransferMessage(xmlFile, sepaFile)
-      case SepaMessageType.B2B_PAYMENT_REJECT =>
+      case SepaMessageType.B2B_PAYMENT_REJECT => processIncomingFileActor ! ProcessIncomingPaymentRejectMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_RETURN => processIncomingFileActor ! ProcessIncomingPaymentReturnMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_RECALL =>
       case SepaMessageType.B2B_PAYMENT_RECALL_NEGATIVE_ANSWER =>

@@ -7,7 +7,7 @@ import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
-import model.enums.sepaReasonCodes.PaymentReturnMessageReasonCode.PaymentReturnMessageReasonCode
+import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -45,8 +45,8 @@ case class PaymentReturnMessage(
         ),
         OrgnlGrpInf = message.customFields.flatMap(json =>
           for {
-            originalSepaMessageId <- (json \\ SepaMessageCustomField.ORIGINAL_SEPA_MESSAGE_ID.toString).headOption.flatMap(_.asString)
-            originalSepaMessageNameId <- (json \\ SepaMessageCustomField.ORIGINAL_SEPA_MESSAGE_NAME_ID.toString).headOption.flatMap(_.asString)
+            originalSepaMessageId <- (json \\ SepaMessageCustomField.ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString).headOption.flatMap(_.asString)
+            originalSepaMessageNameId <- (json \\ SepaMessageCustomField.ORIGINAL_MESSAGE_TYPE.toString).headOption.flatMap(_.asString)
           } yield OriginalGroupInformation21(originalSepaMessageId, originalSepaMessageNameId)
         ),
         TxInf = creditTransferTransactions.map(transaction =>
@@ -110,8 +110,9 @@ object PaymentReturnMessage {
           instigatingAgent = document.PmtRtr.GrpHdr.InstgAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
           instigatedAgent = document.PmtRtr.GrpHdr.InstdAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
           customFields = document.PmtRtr.OrgnlGrpInf.map(originalGroupInfo => Json.fromJsonObject(JsonObject.empty
-            .add(SepaMessageCustomField.ORIGINAL_SEPA_MESSAGE_ID.toString, Json.fromString(originalGroupInfo.OrgnlMsgId))
-            .add(SepaMessageCustomField.ORIGINAL_SEPA_MESSAGE_NAME_ID.toString, Json.fromString(originalGroupInfo.OrgnlMsgNmId))))
+            .add(SepaMessageCustomField.ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString, Json.fromString(originalGroupInfo.OrgnlMsgId))
+            .add(SepaMessageCustomField.ORIGINAL_MESSAGE_TYPE.toString, Json.fromString(originalGroupInfo.OrgnlMsgNmId))))
+          // TODO : Add the others custom fields (Originator + Reason)
         ),
         creditTransferTransactions = document.PmtRtr.TxInf.map(xmlTransaction => {
           val originalSepaCreditTransferTransaction = SepaCreditTransferTransaction(
@@ -127,7 +128,7 @@ object PaymentReturnMessage {
             creationDateTime = LocalDateTime.now(),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
-            status = SepaCreditTransferTransactionStatus.TO_RETURN,
+            status = SepaCreditTransferTransactionStatus.RETURNED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINATOR.toString,
                 Json.fromString(xmlTransaction.RtrRsnInf.headOption.flatMap(_.Orgtr.flatMap(originator => originator.Nm.
@@ -145,7 +146,7 @@ object PaymentReturnMessage {
   }
 
 
-  def returnTransaction(transactionToReturn: SepaCreditTransferTransaction, originalsepaMessage: SepaMessage, paymentReturnReasonCode: PaymentReturnMessageReasonCode) = {
+  def returnTransaction(transactionToReturn: SepaCreditTransferTransaction, originalsepaMessage: SepaMessage, paymentReturnReasonCode: PaymentReturnReasonCode) = {
     for {
       returnSepaMessage <- SepaMessage.getUnprocessedByType(SepaMessageType.B2B_PAYMENT_RETURN).map(_.headOption.getOrElse {
         val sepaMessageId = UUID.randomUUID()
@@ -154,8 +155,8 @@ object PaymentReturnMessage {
           SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
           numberOfTransactions = 0, totalAmount = 0, None, None, None,
           Some(Json.fromJsonObject(JsonObject.empty
-            .add(SepaMessageCustomField.ORIGINAL_SEPA_MESSAGE_ID.toString, Json.fromString(originalsepaMessage.messageIdInSepaFile))
-            .add(SepaMessageCustomField.ORIGINAL_SEPA_MESSAGE_NAME_ID.toString, Json.fromString(originalsepaMessage.messageType.toString))))
+            .add(SepaMessageCustomField.ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString, Json.fromString(originalsepaMessage.messageIdInSepaFile))
+            .add(SepaMessageCustomField.ORIGINAL_MESSAGE_TYPE.toString, Json.fromString(originalsepaMessage.messageType.toString))))
         )
         message.insert()
         message

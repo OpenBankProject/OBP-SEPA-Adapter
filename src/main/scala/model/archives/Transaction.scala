@@ -3,8 +3,8 @@ package model.archives
 import java.time.LocalDateTime
 import java.util.UUID
 
-import model.enums.TransactionStatus.TransactionStatus
-import model.enums.TransactionType.TransactionType
+import model.archives.enums.TransactionStatus.TransactionStatus
+import model.archives.enums.TransactionType.TransactionType
 
 class Transaction(
                    val id: UUID,

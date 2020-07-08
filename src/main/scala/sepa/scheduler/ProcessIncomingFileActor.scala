@@ -16,10 +16,10 @@ import com.openbankproject.commons.model.AmountOfMoney
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Json, JsonObject, parser}
-import model.enums.sepaReasonCodes.PaymentReturnMessageReasonCode
+import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.enums.{SepaCreditTransferTransactionStatus, SepaFileStatus, SepaMessageStatus}
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
-import sepa.{CreditTransferMessage, PaymentReturnMessage}
+import sepa.{CreditTransferMessage, PaymentRejectMessage, PaymentReturnMessage}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -30,6 +30,8 @@ import scala.xml.Elem
 case class ProcessIncomingCreditTransferMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 case class ProcessIncomingPaymentReturnMessage(xmlFile: Elem, sepaFile: SepaFile)
+
+case class ProcessIncomingPaymentRejectMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 class ProcessIncomingFileActor extends Actor with ActorLogging {
 
@@ -106,8 +108,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                 _ <- Future.sequence(validReturnedTransactions.flatMap(_.map(transaction =>
                   transaction._1.linkMessage(paymentReturnMessage.message.id, transaction._2, None, None))))
                 _ <- Future.sequence(validReturnedTransactions.flatMap(_.map(transaction =>
-                  saveReturnedHistoricalTransaction(transaction._1).map(obpTransactionId => {
-                    println("OK")
+                  saveReturnedHistoricalTransaction(transaction._1, "RETURN").map(obpTransactionId => {
                     for {
                       _ <- transaction._1.updateMessageLink(paymentReturnMessage.message.id, transaction._2, None, Some(obpTransactionId))
                       _ <- transaction._1.copy(status = SepaCreditTransferTransactionStatus.RETURNED).update()
@@ -119,6 +120,60 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                       transaction._1.copy(status = SepaCreditTransferTransactionStatus.RETURN_ERROR).update()
                   })))
                 _ <- paymentReturnMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+                _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+              } yield ()
+          }
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield exception
+      }
+
+    case ProcessIncomingPaymentRejectMessage(xmlFile, sepaFile) =>
+      PaymentRejectMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(paymentRejectMessage) =>
+          SepaMessage.getByMessageIdInSepaFile(paymentRejectMessage.message.messageIdInSepaFile).map {
+            case Some(alreadyExistingRejectMessage) =>
+              log.error(s"PaymentRejectMessage with idInSepaFile (${paymentRejectMessage.message.messageIdInSepaFile}) already exist in database with the messageId (${alreadyExistingRejectMessage.id}). File ${sepaFile.id} not integrated")
+              sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+            case None =>
+              for {
+                _ <- paymentRejectMessage.message.insert()
+                validRejectedTransactions <- Future.sequence(paymentRejectMessage.creditTransferTransactions.map(rejectedTransaction =>
+                  SepaCreditTransferTransaction.getByTransactionStatusIdInSepaFile(rejectedTransaction._2) flatMap {
+                    case Some(alreadyRejectedTransaction) =>
+                      log.error(s"Transaction with sepaRejectId (${rejectedTransaction._2}) in message ${paymentRejectMessage.message.id} already exist in database with the transactionId (${alreadyRejectedTransaction.id}). Returned Transaction ${rejectedTransaction} not integrated")
+                      Future(None)
+                    case None =>
+                      SepaCreditTransferTransaction.getByTransactionIdInSepaFile(rejectedTransaction._1.transactionIdInSepaFile).flatMap {
+                        case Some(sepaCreditTransferTransaction) =>
+                          val updatedTransaction = sepaCreditTransferTransaction.copy(
+                            status = SepaCreditTransferTransactionStatus.REJECTED,
+                            customFields = rejectedTransaction._1.customFields.map(rejectedTransactionJson =>
+                              sepaCreditTransferTransaction.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
+                                .deepMerge(rejectedTransactionJson)))
+                          for {
+                            _ <- updatedTransaction.update()
+                          } yield Some((updatedTransaction, rejectedTransaction._2))
+                        case None =>
+                          log.warning(s"Rejected transaction with OriginalTransactionIdInSepaFile (${rejectedTransaction._1.transactionIdInSepaFile}) received. But original transaction not found in the database. Transaction integrated with id (${rejectedTransaction._1.id})")
+                          for {
+                            _ <- rejectedTransaction._1.insert()
+                          } yield Some((rejectedTransaction._1, rejectedTransaction._2))
+                      }
+                  }
+                ))
+                _ <- Future.sequence(validRejectedTransactions.flatMap(_.map(transaction =>
+                  transaction._1.linkMessage(paymentRejectMessage.message.id, transaction._2, None, None))))
+                _ <- Future.sequence(validRejectedTransactions.flatMap(_.map(transaction =>
+                  saveReturnedHistoricalTransaction(transaction._1, "REJECT").map(obpTransactionId =>
+                    transaction._1.updateMessageLink(paymentRejectMessage.message.id, transaction._2, None, Some(obpTransactionId))
+                  ).recoverWith {
+                    case e: Throwable =>
+                      log.error(e.getMessage)
+                      transaction._1.copy(status = SepaCreditTransferTransactionStatus.REJECT_ERROR).update()
+                  })))
+                _ <- paymentRejectMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
                 _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
               } yield ()
           }
@@ -187,7 +242,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
               println((errorCode.getOrElse(""), errorMessage.getOrElse("")))
               (errorCode, errorMessage) match {
                 case (Some(404), Some("OBP-30018")) =>
-                  PaymentReturnMessage.returnTransaction(creditTransferTransaction, sepaMessage, PaymentReturnMessageReasonCode.INCORRECT_ACCOUNT_NUMBER)
+                  PaymentReturnMessage.returnTransaction(creditTransferTransaction, sepaMessage, PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
                     .flatMap(_ => Future.failed(new Throwable(s"Transaction ${creditTransferTransaction.id} returned : Account not found : ${creditTransferTransaction.creditorAccount}")))
                 case _ => Future.failed(new Throwable(s"Unknow error in saveHistoricalTransactionResponse: ${errorMessage.getOrElse("")}"))
               }
@@ -199,7 +254,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
   }
 
-  def saveReturnedHistoricalTransaction(returnedCreditTransferTransaction: SepaCreditTransferTransaction): Future[UUID] = {
+  def saveReturnedHistoricalTransaction(returnedCreditTransferTransaction: SepaCreditTransferTransaction, returnType: String): Future[UUID] = {
 
     val jsonDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
     implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
@@ -226,7 +281,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             currency = "EUR",
             amount = returnedCreditTransferTransaction.amount.toString
           ).asJson,
-          description = "TRANSACTION RETURNED. Original description : " + returnedCreditTransferTransaction.descripton.getOrElse(""),
+          description = s"TRANSACTION ${returnType + "ED"}. Original description : " + returnedCreditTransferTransaction.descripton.getOrElse(""),
           posted = LocalDateTime.now.format(jsonDateTimeFormatter),
           completed = LocalDateTime.now.format(jsonDateTimeFormatter),
           `type` = "SEPA",

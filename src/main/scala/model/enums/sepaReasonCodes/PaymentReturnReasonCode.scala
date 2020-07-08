@@ -1,7 +1,7 @@
 package model.enums.sepaReasonCodes
 
-object PaymentReturnMessageReasonCode extends Enumeration {
-  type PaymentReturnMessageReasonCode = Value
+object PaymentReturnReasonCode extends Enumeration {
+  type PaymentReturnReasonCode = Value
 
   val INCORRECT_ACCOUNT_NUMBER = Value("AC01") // Account identifier invalid (i.e. invalid IBAN or account number does not exist)
   val CLOSED_ACCOUNT_NUMBER = Value("AC04") // Account closed

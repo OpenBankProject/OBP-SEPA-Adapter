@@ -2,8 +2,8 @@ package model.archives
 
 import java.util.UUID
 
-import model.enums.AccountStatus.AccountStatus
-import model.enums.AccountType.AccountType
+import model.archives.enums.AccountStatus.AccountStatus
+import model.archives.enums.AccountType.AccountType
 import model.types.Iban
 
 case class Account(

@@ -3,11 +3,11 @@ package model.archives
 import java.time.LocalDate
 import java.util.UUID
 
-import model.enums.CardPaymentNetwork.CardPaymentNetwork
-import model.enums.CardPaymentStatus.CardPaymentStatus
-import model.enums.CardRange.CardRange
-import model.enums.CardStatus.CardStatus
-import model.enums.CardType.CardType
+import model.archives.enums.CardPaymentNetwork.CardPaymentNetwork
+import model.archives.enums.CardPaymentStatus.CardPaymentStatus
+import model.archives.enums.CardRange.CardRange
+import model.archives.enums.CardStatus.CardStatus
+import model.archives.enums.CardType.CardType
 
 case class Card(
                  id: UUID,

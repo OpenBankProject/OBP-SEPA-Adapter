@@ -1,4 +1,4 @@
-package model.enums
+package model.archives.enums
 
 object AccountType extends Enumeration {
   type AccountType = Value

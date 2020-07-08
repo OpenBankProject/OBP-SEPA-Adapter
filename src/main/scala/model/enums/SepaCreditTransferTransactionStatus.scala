@@ -12,4 +12,7 @@ object SepaCreditTransferTransactionStatus extends Enumeration {
   val TO_RETURN: enums.SepaCreditTransferTransactionStatus.Value = Value
   val RETURNED: enums.SepaCreditTransferTransactionStatus.Value = Value
   val RETURN_ERROR: enums.SepaCreditTransferTransactionStatus.Value = Value
+
+  val REJECTED: enums.SepaCreditTransferTransactionStatus.Value = Value
+  val REJECT_ERROR: enums.SepaCreditTransferTransactionStatus.Value = Value
 }

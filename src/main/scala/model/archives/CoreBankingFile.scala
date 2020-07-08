@@ -4,8 +4,8 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.util.UUID
 
-import model.enums.CoreBankingFileStatus.CoreBankingFileStatus
-import model.enums.CoreBankingFileType.CoreBankingFileType
+import model.archives.enums.CoreBankingFileStatus.CoreBankingFileStatus
+import model.archives.enums.CoreBankingFileType.CoreBankingFileType
 
 case class CoreBankingFile(id: UUID,
                            name: String,

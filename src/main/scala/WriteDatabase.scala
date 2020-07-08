@@ -2,10 +2,10 @@ import java.nio.file.Path
 import java.time.{LocalDate, LocalDateTime, Month}
 import java.util.UUID
 
-import model.enums._
+import model.archives
+import model.archives.enums._
+import model.archives._
 import model.types.{Bic, Iban}
-import model.{archives, _}
-import model.archives.{Account, Beneficiary, Card, CardTransaction, CoreBankingFile, Customer, SDDMandate, SchemaArchive, SepaTransaction}
 import slick.dbio.DBIOAction
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.PostgresProfile.api._

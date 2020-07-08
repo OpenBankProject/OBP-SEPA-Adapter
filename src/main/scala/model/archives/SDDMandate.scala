@@ -3,8 +3,8 @@ package model.archives
 import java.time.LocalDate
 import java.util.UUID
 
-import model.enums.SDDMandateStatus.SDDMandateStatus
-import model.enums.SDDMandateType.SDDMandateType
+import model.archives.enums.SDDMandateStatus.SDDMandateStatus
+import model.archives.enums.SDDMandateType.SDDMandateType
 import model.types.{Bic, Iban}
 
 case class SDDMandate(

@@ -1,4 +1,4 @@
-package model.enums
+package model.archives.enums
 
 object SDDMandateType extends Enumeration {
   type SDDMandateType = Value

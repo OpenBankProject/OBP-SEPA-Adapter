@@ -1,4 +1,4 @@
-package model.enums
+package model.archives.enums
 
 object TransactionStatus extends Enumeration {
   type TransactionStatus = Value

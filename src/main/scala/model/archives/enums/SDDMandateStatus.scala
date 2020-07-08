@@ -1,4 +1,4 @@
-package model.enums
+package model.archives.enums
 
 object SDDMandateStatus extends Enumeration {
   type SDDMandateStatus = Value
