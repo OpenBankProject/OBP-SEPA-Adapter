@@ -126,7 +126,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
         case Failure(exception) =>
           for {
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
-          } yield exception
+          } yield log.error(exception.getMessage)
       }
 
     case ProcessIncomingPaymentRejectMessage(xmlFile, sepaFile) =>

@@ -1,8 +1,7 @@
 package adapter
 
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.time.{Instant, LocalDateTime, ZoneOffset}
-import java.util.concurrent.TimeUnit
 import java.util.{Date, UUID}
 
 import akka.actor.{Actor, ActorLogging}
@@ -15,17 +14,16 @@ import akka.util.ByteString
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
 import io.circe.generic.auto._
-import io.circe.parser
 import io.circe.syntax._
+import io.circe.{JsonObject, parser}
 import model.enums.{SepaCreditTransferTransactionStatus, SepaMessageStatus, SepaMessageType}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import sepa.SepaUtil
 
-import scala.collection.immutable.{List, Seq}
-import scala.concurrent.Await
+import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 class AkkaConnectorActor extends Actor with ActorLogging {
@@ -163,4 +161,39 @@ class AkkaConnectorActor extends Actor with ActorLogging {
   }
 
   def successInBoundStatus: Status = Status("", Nil)
+
+  def getObpAccountIdByIban(bankId: BankId, viewId: ViewId, iban: Iban): Future[AccountId] = {
+    implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
+    Http(context.system).singleRequest(
+      HttpRequest(
+        method = HttpMethods.POST,
+        uri = s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${viewId.value}/account",
+        headers = Seq(
+          Authorization(GenericHttpCredentials("DirectLogin", "token=eyJhbGciOiJIUzI1NiJ9.eyIiOiIifQ.CeA_QUnsF4xBScAYy3ZtK64f7uE28nHbXSFoAlodUQM"))
+        ),
+        entity = HttpEntity(
+          contentType = ContentTypes.`application/json`,
+          JsonObject.fromMap(Map(("iban", iban.iban.asJson))).asJson.toString()
+        )
+      )
+    ).flatMap(_.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(body => body.utf8String).flatMap(response => {
+      parser.parse(response).toTry match {
+        case Success(jsonResult) if (jsonResult \\ "id").nonEmpty =>
+          (jsonResult \\ "id").headOption.flatMap(_.asString) match {
+            case Some(accountId) => Future.successful(AccountId(accountId))
+            case None => Future.failed(new Exception("Impossible to convert id to String"))
+          }
+        case Success(jsonResult) if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
+          val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
+          val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString.flatMap(_.split(":").headOption))
+          (errorCode, errorMessage) match {
+            case (Some(404), Some("OBP-30018")) =>
+                 Future.failed(new ObpAccountNotFoundException(s"Account not found in OBP-API : ${iban}"))
+            case _ => Future.failed(new Exception(s"Unknow error in getObpAccountIdByIban: ${errorMessage.getOrElse("")}"))
+          }
+
+        case Failure(exception) => Future.failed(new Exception(s"Impossible to parse json response : $response | exception : ${exception.getMessage}"))
+      }
+    }))
+  }
 }
