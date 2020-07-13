@@ -15,6 +15,7 @@ import sepa.sct.generated.paymentReturn
 import sepa.sct.generated.paymentReturn._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.Try
 import scala.xml.{Elem, NodeSeq}
 
@@ -52,7 +53,14 @@ case class PaymentReturnMessage(
         TxInf = creditTransferTransactions.map(transaction =>
           PaymentTransactionInformation27(
             RtrId = Some(transaction._2),
-            OrgnlGrpInf = None, //  must be present in either 'Original Group Information’ or in ‘Transaction Information’.
+            OrgnlGrpInf = transaction._1.customFields.flatMap(json =>
+              for {
+                originalSepaMessageId <- (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString).headOption.flatMap(_.asString)
+                    .orElse((json \\ SepaMessageCustomField.ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString).headOption.flatMap(_.asString))
+                originalSepaMessageNameId <- (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_TYPE.toString).headOption.flatMap(_.asString)
+                    .orElse((json \\ SepaMessageCustomField.ORIGINAL_MESSAGE_TYPE.toString).headOption.flatMap(_.asString))
+              } yield OriginalGroupInformation3(originalSepaMessageId, originalSepaMessageNameId)
+            ),
             OrgnlInstrId = transaction._1.instructionId,
             OrgnlEndToEndId = Some(transaction._1.endToEndId),
             OrgnlTxId = Some(transaction._1.transactionIdInSepaFile),
@@ -112,7 +120,6 @@ object PaymentReturnMessage {
           customFields = document.PmtRtr.OrgnlGrpInf.map(originalGroupInfo => Json.fromJsonObject(JsonObject.empty
             .add(SepaMessageCustomField.ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString, Json.fromString(originalGroupInfo.OrgnlMsgId))
             .add(SepaMessageCustomField.ORIGINAL_MESSAGE_TYPE.toString, Json.fromString(originalGroupInfo.OrgnlMsgNmId))))
-          // TODO : Add the others custom fields (Originator + Reason)
         ),
         creditTransferTransactions = document.PmtRtr.TxInf.map(xmlTransaction => {
           val originalSepaCreditTransferTransaction = SepaCreditTransferTransaction(
@@ -130,6 +137,10 @@ object PaymentReturnMessage {
             xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
             status = SepaCreditTransferTransactionStatus.RETURNED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
+              .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
+                Json.fromString(xmlTransaction.OrgnlGrpInf.map(_.OrgnlMsgId).orElse(document.PmtRtr.OrgnlGrpInf.map(_.OrgnlMsgId)).getOrElse("")))
+              .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_TYPE.toString,
+                Json.fromString(xmlTransaction.OrgnlGrpInf.map(_.OrgnlMsgNmId).orElse(document.PmtRtr.OrgnlGrpInf.map(_.OrgnlMsgNmId)).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINATOR.toString,
                 Json.fromString(xmlTransaction.RtrRsnInf.headOption.flatMap(_.Orgtr.flatMap(originator => originator.Nm.
                   orElse(originator.Id.flatMap(_.party6choicableoption.value match {
@@ -146,30 +157,37 @@ object PaymentReturnMessage {
   }
 
 
-  def returnTransaction(transactionToReturn: SepaCreditTransferTransaction, originalsepaMessage: SepaMessage, paymentReturnReasonCode: PaymentReturnReasonCode) = {
+  def returnTransaction(transactionToReturn: SepaCreditTransferTransaction, originator: String, paymentReturnReasonCode: PaymentReturnReasonCode, obpTransactionRequestId: Option[UUID] = None, obpTransactionId: Option[UUID] = None): Future[Unit] = {
     for {
-      returnSepaMessage <- SepaMessage.getUnprocessedByType(SepaMessageType.B2B_PAYMENT_RETURN).map(_.headOption.getOrElse {
-        val sepaMessageId = UUID.randomUUID()
-        val message = SepaMessage(
-          sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_PAYMENT_RETURN,
-          SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
-          numberOfTransactions = 0, totalAmount = 0, None, None, None,
-          Some(Json.fromJsonObject(JsonObject.empty
-            .add(SepaMessageCustomField.ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString, Json.fromString(originalsepaMessage.messageIdInSepaFile))
-            .add(SepaMessageCustomField.ORIGINAL_MESSAGE_TYPE.toString, Json.fromString(originalsepaMessage.messageType.toString))))
-        )
-        message.insert()
-        message
-      })
+      originalSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transactionToReturn.id).map(_.find(_.messageType == SepaMessageType.B2B_CREDIT_TRANSFER))
+      returnSepaMessage <- SepaMessage.getUnprocessedByType(SepaMessageType.B2B_PAYMENT_RETURN).map(_.headOption).flatMap {
+        case Some(returnMessage) => Future.successful(returnMessage)
+        case None =>
+          val sepaMessageId = UUID.randomUUID()
+          val message = SepaMessage(
+            sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_PAYMENT_RETURN,
+            SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
+            numberOfTransactions = 0, totalAmount = 0, None, None, None, None
+          )
+          for {
+            _ <- message.insert()
+          } yield message
+      }
       _ <- transactionToReturn.copy(
         status = SepaCreditTransferTransactionStatus.TO_RETURN,
-        customFields = Some(Json.fromJsonObject(JsonObject.empty
+        customFields = Some(transactionToReturn.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
+          .deepMerge(Json.fromJsonObject(JsonObject.empty
+          .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
+            Json.fromString(originalSepaMessage.map(_.messageIdInSepaFile).getOrElse("")))
+          .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_TYPE.toString,
+            Json.fromString(originalSepaMessage.map(_.messageType.toString).getOrElse("")))
           .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINATOR.toString,
-            Json.fromString(transactionToReturn.creditorAgent.map(_.bic).getOrElse("")))
+            Json.fromString(originator))
           .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_REASON_CODE.toString,
-            Json.fromString(paymentReturnReasonCode.toString))))
+            Json.fromString(paymentReturnReasonCode.toString)))))
       ).update()
-      _ <- transactionToReturn.linkMessage(returnSepaMessage.id, SepaUtil.removeDashesToUUID(UUID.randomUUID()), None, None)
+      transactionStatusIdInSepaFile = SepaUtil.removeDashesToUUID(UUID.randomUUID())
+      _ <- transactionToReturn.linkMessage(returnSepaMessage.id, transactionStatusIdInSepaFile, obpTransactionRequestId, obpTransactionId)
       _ <- returnSepaMessage.copy(
         numberOfTransactions = returnSepaMessage.numberOfTransactions + 1,
         totalAmount = returnSepaMessage.totalAmount + transactionToReturn.amount

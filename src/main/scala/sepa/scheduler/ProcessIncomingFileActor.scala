@@ -5,21 +5,22 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-import adapter.{CounterpartyAccountReference, CustomerAccountReference, HistoricalTransactionJson}
+import adapter.Adapter
+import adapter.obpApiModel._
 import akka.actor.{Actor, ActorLogging}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{Authorization, GenericHttpCredentials}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.util.ByteString
-import com.openbankproject.commons.model.AmountOfMoney
+import com.openbankproject.commons.model.{AmountOfMoney, Iban}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Json, JsonObject, parser}
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode
-import model.enums.{SepaCreditTransferTransactionStatus, SepaFileStatus, SepaMessageStatus}
+import model.enums.{SepaCreditTransferTransactionCustomField, SepaCreditTransferTransactionStatus, SepaFileStatus, SepaMessageStatus}
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
-import sepa.{CreditTransferMessage, PaymentRejectMessage, PaymentReturnMessage}
+import sepa.{CreditTransferMessage, PaymentRecallMessage, PaymentRejectMessage, PaymentReturnMessage}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -32,6 +33,8 @@ case class ProcessIncomingCreditTransferMessage(xmlFile: Elem, sepaFile: SepaFil
 case class ProcessIncomingPaymentReturnMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 case class ProcessIncomingPaymentRejectMessage(xmlFile: Elem, sepaFile: SepaFile)
+
+case class ProcessIncomingPaymentRecallMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 class ProcessIncomingFileActor extends Actor with ActorLogging {
 
@@ -47,7 +50,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             _ <- Future.sequence(creditTransferMessage.creditTransferTransactions.map(transaction =>
               transaction.linkMessage(creditTransferMessage.message.id, transaction.transactionIdInSepaFile, None, None)))
             integratedTransactions <- Future.sequence(creditTransferMessage.creditTransferTransactions.map(transaction =>
-              saveHistoricalTransactionFromCounterparty(transaction, creditTransferMessage.message).flatMap(obpTransactionId =>
+              saveHistoricalTransactionFromCounterparty(transaction).flatMap(obpTransactionId =>
                 for {
                   _ <- transaction.updateMessageLink(creditTransferMessage.message.id, transaction.transactionIdInSepaFile, None, Some(obpTransactionId))
                   _ <- transaction.copy(status = SepaCreditTransferTransactionStatus.PROCESSED).update()
@@ -183,6 +186,76 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
           } yield exception
       }
 
+    case ProcessIncomingPaymentRecallMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      PaymentRecallMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(paymentRecallMessage) =>
+          SepaMessage.getByMessageIdInSepaFile(paymentRecallMessage.message.messageIdInSepaFile).map {
+            case Some(alreadyExistingRecallMessage) =>
+              log.error(s"PaymentRecallMessage with idInSepaFile (${paymentRecallMessage.message.messageIdInSepaFile}) already exist in database with the messageId (${alreadyExistingRecallMessage.id}). File ${sepaFile.id} not integrated")
+              sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+            case None =>
+              for {
+                _ <- paymentRecallMessage.message.insert()
+                validRecalledTransactions <- Future.sequence(paymentRecallMessage.creditTransferTransactions.map(recalledTransaction =>
+                  SepaCreditTransferTransaction.getByTransactionStatusIdInSepaFile(recalledTransaction._2) flatMap {
+                    case Some(alreadyRecalledTransaction) =>
+                      log.error(s"Transaction with sepaRecallId (${recalledTransaction._2}) in message ${paymentRecallMessage.message.id} already exist in database with the transactionId (${alreadyRecalledTransaction.id}). Recalled Transaction ${recalledTransaction} not integrated")
+                      Future(None)
+                    case None =>
+                      SepaCreditTransferTransaction.getByTransactionIdInSepaFile(recalledTransaction._1.transactionIdInSepaFile).flatMap {
+                        case Some(sepaCreditTransferTransaction) =>
+                          val updatedTransaction = sepaCreditTransferTransaction.copy(
+                            status = SepaCreditTransferTransactionStatus.TO_RECALL,
+                            customFields = recalledTransaction._1.customFields.map(recalledTransactionJson =>
+                              sepaCreditTransferTransaction.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
+                                .deepMerge(recalledTransactionJson)))
+                          for {
+                            _ <- updatedTransaction.update()
+                          } yield Some((updatedTransaction, recalledTransaction._2))
+                        case None =>
+                          log.warning(s"Recalled transaction with OriginalTransactionIdInSepaFile (${recalledTransaction._1.transactionIdInSepaFile}) received. But original transaction not found in the database. Transaction integrated with id (${recalledTransaction._1.id})")
+                          for {
+                            _ <- recalledTransaction._1.insert()
+                          } yield Some((recalledTransaction._1, recalledTransaction._2))
+                      }
+                  }
+                ))
+                _ <- Future.sequence(validRecalledTransactions.flatMap(_.map(transaction =>
+                  transaction._1.linkMessage(paymentRecallMessage.message.id, transaction._2, None, None))))
+                _ <- Future.sequence(validRecalledTransactions.flatMap(_.map(transaction => {
+                  val refundTransactionRequest = RefundTransactionRequest(
+                    from = Some(RefundTransactionRequestCounterpartyIban(transaction._1.debtorAccount.map(_.iban).getOrElse("")).asJson),
+                    value = AmountOfMoney(
+                      currency = "EUR",
+                      amount = transaction._1.amount.toString
+                    ).asJson,
+                    description = transaction._1.customFields.flatMap(json =>
+                      (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString)
+                        .headOption.flatMap(_.asString)).orElse(transaction._1.description).getOrElse(""),
+                    refund = RefundTransactionRequestContent(
+                      transaction_id = transaction._1.id.toString,
+                      reason_code = transaction._1.customFields.flatMap(json =>
+                        (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString)).getOrElse("")
+                    ).asJson
+                  )
+                  for {
+                    // TODO : Find a way to make the ObpApi object work with akka
+                    accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.creditorAccount.getOrElse(Iban("")))
+                    transactionRequestId <- ObpApi.createRefundTransactionRequest(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, refundTransactionRequest)
+                    _ <- transaction._1.updateMessageLink(paymentRecallMessage.message.id, transaction._2, Some(UUID.fromString(transactionRequestId.value)), None)
+                  } yield ()
+                }
+                )))
+                _ <- paymentRecallMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+                _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+              } yield ()
+          }
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
 
     case _ => sys.error(s"Message received but not implemented yet")
 
@@ -190,7 +263,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
 
   // TODO : Refactorize this function with the next one
-  def saveHistoricalTransactionFromCounterparty(creditTransferTransaction: SepaCreditTransferTransaction, sepaMessage: SepaMessage): Future[UUID] = {
+  def saveHistoricalTransactionFromCounterparty(creditTransferTransaction: SepaCreditTransferTransaction): Future[UUID] = {
 
     val jsonDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
     implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
@@ -242,7 +315,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
               println((errorCode.getOrElse(""), errorMessage.getOrElse("")))
               (errorCode, errorMessage) match {
                 case (Some(404), Some("OBP-30018")) =>
-                  PaymentReturnMessage.returnTransaction(creditTransferTransaction, sepaMessage, PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
+                  PaymentReturnMessage.returnTransaction(creditTransferTransaction, creditTransferTransaction.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic), PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
                     .flatMap(_ => Future.failed(new Throwable(s"Transaction ${creditTransferTransaction.id} returned : Account not found : ${creditTransferTransaction.creditorAccount}")))
                 case _ => Future.failed(new Throwable(s"Unknow error in saveHistoricalTransactionResponse: ${errorMessage.getOrElse("")}"))
               }

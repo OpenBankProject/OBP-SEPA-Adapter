@@ -25,8 +25,8 @@ object ProcessIncomingFilesActorSystem extends App {
   val processIncomingFileActor = system.actorOf(Props.create(classOf[ProcessIncomingFileActor]), "obp-api-request-actor")
 
   val filesToProcess = Seq[File](
-    //new File(s"src/main/scala/sepa/SEPA_SCT_IN_pacs.008.001.02_2020-06-30_2.xml"),
-    new File(s"src/main/scala/sepa/SEPA_SCT_IN_pacs.004.001.02.xml")
+    new File(s"src/main/scala/sepa/SEPA_SCT_IN_pacs.008.001.02_2020-06-30_2.xml"),
+    //new File(s"src/main/scala/sepa/SEPA_SCT_IN_pacs.004.001.02.xml")
   )
 
   filesToProcess.foreach(file => {
@@ -48,7 +48,7 @@ object ProcessIncomingFilesActorSystem extends App {
       case SepaMessageType.B2B_CREDIT_TRANSFER => processIncomingFileActor ! ProcessIncomingCreditTransferMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_REJECT => processIncomingFileActor ! ProcessIncomingPaymentRejectMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_RETURN => processIncomingFileActor ! ProcessIncomingPaymentReturnMessage(xmlFile, sepaFile)
-      case SepaMessageType.B2B_PAYMENT_RECALL =>
+      case SepaMessageType.B2B_PAYMENT_RECALL => processIncomingFileActor ! ProcessIncomingPaymentRecallMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_RECALL_NEGATIVE_ANSWER =>
       case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP =>
       case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION =>

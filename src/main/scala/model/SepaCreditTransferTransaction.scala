@@ -3,7 +3,7 @@ package model
 import java.time.LocalDateTime
 import java.util.UUID
 
-import com.openbankproject.commons.model.Iban
+import com.openbankproject.commons.model.{Iban, TransactionId, TransactionRequestId}
 import io.circe.Json
 import model.Schema.sepaCreditTransferTransactionStatusColumnType
 import model.enums.SepaCreditTransferTransactionStatus
@@ -110,6 +110,26 @@ object SepaCreditTransferTransaction {
     Schema.db.run(
       Schema.sepaTransactionMessages
         .filter(_.transactionStatusIdInSepaFile === transactionStatusIdInSepaFile)
+        .join(Schema.sepaCreditTransferTransactions)
+        .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
+        .map(_._2)
+        .result.headOption
+    )
+
+  def getByObpTransactionId(obpTransactionId: TransactionId): Future[Option[SepaCreditTransferTransaction]] =
+    Schema.db.run(
+      Schema.sepaTransactionMessages
+        .filter(_.obpTransactionId === UUID.fromString(obpTransactionId.value))
+        .join(Schema.sepaCreditTransferTransactions)
+        .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
+        .map(_._2)
+        .result.headOption
+    )
+
+  def getByObpTransactionRequestId(obpTransactionRequestId: TransactionRequestId): Future[Option[SepaCreditTransferTransaction]] =
+    Schema.db.run(
+      Schema.sepaTransactionMessages
+        .filter(_.obpTransactionRequestId === UUID.fromString(obpTransactionRequestId.value))
         .join(Schema.sepaCreditTransferTransactions)
         .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
         .map(_._2)

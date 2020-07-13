@@ -1,4 +1,4 @@
-package adapter
+package adapter.obpApiModel
 
 import io.circe.Json
 

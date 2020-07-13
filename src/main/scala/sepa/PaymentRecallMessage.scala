@@ -143,11 +143,7 @@ object PaymentRecallMessage {
                   case reasonCode: CancellationReason2Choice => reasonCode.cancellationreason2choicableoption.value.toString
                 })).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString,
-                Json.fromString(xmlTransaction.CxlRsnInf.headOption.flatMap(_.Rsn.flatMap(_.cancellationreason2choicableoption.value match {
-                  case reasonCode: CancellationReason2Choice
-                    if PaymentRecallReasonCode.withName(reasonCode.cancellationreason2choicableoption.value.toString) == PaymentRecallReasonCode.FRAUDULENT_ORIGIN =>
-                    xmlTransaction.CxlRsnInf.headOption.flatMap(_.AddtlInf.headOption)
-                })).getOrElse("")))
+                Json.fromString(xmlTransaction.CxlRsnInf.headOption.flatMap(_.AddtlInf.headOption).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
                 Json.fromString(xmlTransaction.OrgnlGrpInf.map(_.OrgnlMsgId).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINAL_MESSAGE_TYPE.toString,

@@ -21,4 +21,6 @@ object PaymentReturnReasonCode extends Enumeration {
   val MISSING_CREDITOR_NAME_OR_ADDRESS = Value("RR03") // Regulatory Reason
   val REGULATORY_REASON = Value("RR04") // Regulatory Reason
 
+  val FOLLOWING_CANCELLATION_REQUEST = Value("FOCR") // Return following a cancellation request
+
 }
