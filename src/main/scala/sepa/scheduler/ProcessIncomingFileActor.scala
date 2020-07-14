@@ -239,7 +239,6 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                     ).asJson
                   )
                   for {
-                    // TODO : Find a way to make the ObpApi object work with akka
                     accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.creditorAccount.getOrElse(Iban("")))
                     transactionRequestId <- ObpApi.createRefundTransactionRequest(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, refundTransactionRequest)
                     _ <- transaction._1.updateMessageLink(paymentRecallMessage.message.id, transaction._2, Some(UUID.fromString(transactionRequestId.value)), None)

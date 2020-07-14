@@ -3,11 +3,11 @@ package adapter.obpApiModel
 import java.util.UUID
 
 import adapter.ObpAccountNotFoundException
-import akka.actor.ActorSystem
+import akka.actor.ActorContext
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.headers.{Authorization, GenericHttpCredentials}
 import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
+import akka.http.scaladsl.model.headers.{Authorization, GenericHttpCredentials}
+import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.util.ByteString
 import com.openbankproject.commons.model._
 import io.circe.generic.auto._
@@ -21,7 +21,7 @@ import scala.util.Try
 
 object ObpApi {
 
-  def saveHistoricalTransaction(historicalTransactionJson: HistoricalTransactionJson): Future[UUID] = {
+  def saveHistoricalTransaction(historicalTransactionJson: HistoricalTransactionJson)(implicit context: ActorContext): Future[UUID] = {
     val body = historicalTransactionJson.asJson.toString()
     val callResult = call("http://localhost:8080/obp/v4.0.0/management/historical/transactions", HttpMethods.POST, body)
     callResult.map(println)
@@ -40,11 +40,10 @@ object ObpApi {
     }
   }
 
-  private def call(uri: String, httpMethod: HttpMethod, body: String): Future[Json] = {
-    implicit val system: ActorSystem = ActorSystem()
-    implicit val materializer: ActorMaterializer = ActorMaterializer()
+  private def call(uri: String, httpMethod: HttpMethod, body: String)(implicit context: ActorContext): Future[Json] = {
+    implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
 
-    Http().singleRequest(HttpRequest(
+    Http(context.system).singleRequest(HttpRequest(
       method = httpMethod,
       uri = uri,
       headers = Seq(
@@ -58,7 +57,7 @@ object ObpApi {
       Future.fromTry(parser.parse(response).toTry)))
   }
 
-  def getAccountIdByIban(bankId: BankId, viewId: ViewId, iban: Iban): Future[AccountId] = {
+  def getAccountIdByIban(bankId: BankId, viewId: ViewId, iban: Iban)(implicit context: ActorContext): Future[AccountId] = {
     val body = JsonObject.fromMap(Map(("iban", iban.iban.asJson))).asJson.toString()
     val callResult = call(s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${viewId.value}/account", HttpMethods.POST, body)
 
@@ -76,7 +75,7 @@ object ObpApi {
     }
   }
 
-  def createRefundTransactionRequest(bankId: BankId, accountId: AccountId, viewId: ViewId, refundTransactionRequest: RefundTransactionRequest): Future[TransactionRequestId] = {
+  def createRefundTransactionRequest(bankId: BankId, accountId: AccountId, viewId: ViewId, refundTransactionRequest: RefundTransactionRequest)(implicit context: ActorContext): Future[TransactionRequestId] = {
     val body = refundTransactionRequest.asJson.toString()
     val callResult = call(s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests", HttpMethods.POST, body)
     callResult.map(println)
