@@ -79,12 +79,13 @@ object Schema {
     def purposeCode = column[Option[String]]("purpose_code")
     def description = column[Option[String]]("description")
     def creationDateTime = column[LocalDateTime]("creation_date_time")
+    def settlementDate = column[Option[LocalDate]]("settlement_date")
     def transactionIdInSepaFile = column[String]("transaction_id_in_sepa_file")
     def instructionId = column[Option[String]]("instruction_id")
     def endToEndId = column[String]("end_to_end_id")
     def status = column[SepaCreditTransferTransactionStatus]("status")
     def customFields = column[Option[Json]]("custom_fields")
-    def * = (id :: amount :: debtorName :: debtorAccount :: debtorAgent :: creditorName :: creditorAccount :: creditorAgent :: purposeCode :: description :: creationDateTime :: transactionIdInSepaFile :: instructionId :: endToEndId :: status :: customFields :: HNil).mappedWith(Generic[SepaCreditTransferTransaction])
+    def * = (id :: amount :: debtorName :: debtorAccount :: debtorAgent :: creditorName :: creditorAccount :: creditorAgent :: purposeCode :: description :: creationDateTime :: settlementDate :: transactionIdInSepaFile :: instructionId :: endToEndId :: status :: customFields :: HNil).mappedWith(Generic[SepaCreditTransferTransaction])
   }
   val sepaCreditTransferTransactions = TableQuery[SepaCreditTransferTransactions]
 

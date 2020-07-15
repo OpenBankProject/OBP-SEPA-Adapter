@@ -9,6 +9,6 @@ object PaymentRecallReasonCode extends Enumeration {
 
   val REQUESTED_BY_CUSTOMER = Value("CUST") // By request of the Originator without anyreason specified
   val WRONG_AMOUNT = Value("AM09") // Wrong Amount
-  val INVALID_CREDITOR_Account_NUMBER = Value("AC03") // Account Number Wrong unique identifier of the Beneficiary account
+  val INVALID_CREDITOR_ACCOUNT_NUMBER = Value("AC03") // Account Number Wrong unique identifier of the Beneficiary account
 
 }

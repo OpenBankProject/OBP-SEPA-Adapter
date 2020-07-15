@@ -47,12 +47,6 @@ case class CreditTransferMessage(
 }
 
 object CreditTransferMessage {
-  def fromSepaMessage(sepaMessage: SepaMessage, creditTransferTransactions: Seq[SepaCreditTransferTransaction]): CreditTransferMessage = {
-    CreditTransferMessage(
-      sepaMessage,
-      creditTransferTransactions = creditTransferTransactions
-    )
-  }
 
   def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[CreditTransferMessage] = {
     Try(scalaxb.fromXML[Document](xmlFile)).map(document =>
@@ -72,7 +66,7 @@ object CreditTransferMessage {
           customFields = None
         ),
         creditTransferTransactions = document.FIToFICstmrCdtTrf.CdtTrfTxInf.map(transaction =>
-          SepaCreditTransferTransaction.fromXML(transaction, document.FIToFICstmrCdtTrf.GrpHdr.CreDtTm.toGregorianCalendar.toZonedDateTime.toLocalDateTime)
+          SepaCreditTransferTransaction.fromXML(transaction, document.FIToFICstmrCdtTrf.GrpHdr.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate))
         )
       )
     )

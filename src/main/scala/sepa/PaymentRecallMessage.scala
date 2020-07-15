@@ -3,17 +3,20 @@ package sepa
 import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
 
+import adapter.Adapter
 import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentRecallReasonCode
-import model.enums.sepaReasonCodes.PaymentRecallReasonCode.PaymentRecallReasonCode
+import model.enums.sepaReasonCodes.PaymentRecallReasonCode._
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
 import sepa.sct.generated.paymentRecall._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.Try
 import scala.xml.{Elem, NodeSeq}
 
@@ -27,12 +30,12 @@ case class PaymentRecallMessage(
         Assgnmt = CaseAssignment2(
           Id = message.messageIdInSepaFile,
           Assgnr = message.instigatingAgent.map(_.bic).getOrElse("") match {
-            case assigner if SepaUtil.isBic(assigner) => Party7Choice(DataRecord(BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(assigner)))))
-            case assigner => Party7Choice(DataRecord(PartyIdentification32(Nm = Some(assigner))))
+            case assigner if SepaUtil.isBic(assigner) => Party7Choice(DataRecord(<Agt></Agt>, BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(assigner)))))
+            case assigner => Party7Choice(DataRecord(<Pty></Pty>, PartyIdentification32(Nm = Some(assigner))))
           },
           Assgne = message.instigatedAgent.map(_.bic).getOrElse("") match {
-            case assigner if SepaUtil.isBic(assigner) => Party7Choice(DataRecord(BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(assigner)))))
-            case assigner => Party7Choice(DataRecord(PartyIdentification32(Nm = Some(assigner))))
+            case assigner if SepaUtil.isBic(assigner) => Party7Choice(DataRecord(<Agt></Agt>, BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(assigner)))))
+            case assigner => Party7Choice(DataRecord(<Pty></Pty>, PartyIdentification32(Nm = Some(assigner))))
           },
           CreDtTm = DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar.from(message.creationDateTime.atZone(ZoneId.of("Europe/Paris"))))
         ),
@@ -51,7 +54,15 @@ case class PaymentRecallMessage(
               OrgnlEndToEndId = Some(transaction._1.endToEndId),
               OrgnlTxId = Some(transaction._1.transactionIdInSepaFile),
               OrgnlIntrBkSttlmAmt = Some(ActiveOrHistoricCurrencyAndAmount(value = transaction._1.amount, Map(("@Ccy", DataRecord("EUR"))))),
-              OrgnlIntrBkSttlmDt = None, // TODO: FIELD MANDATORY ! => Add this field to SepaCreditTransferTransaction
+              OrgnlIntrBkSttlmDt = {
+                transaction._1.settlementDate.map(date => {
+                  val settlementDate = DatatypeFactory.newInstance().newXMLGregorianCalendar
+                  settlementDate.setYear(date.getYear)
+                  settlementDate.setMonth(date.getMonthValue)
+                  settlementDate.setDay(date.getDayOfMonth)
+                  settlementDate
+                })
+              },
               CxlRsnInf = Seq(CancellationReasonInformation3(
                 Orgtr = transaction._1.customFields.flatMap(json => (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINATOR.toString).headOption.flatMap(_.asString))
                   .map {
@@ -59,15 +70,19 @@ case class PaymentRecallMessage(
                       PartyIdentification32(Id = Some(Party6Choice(DataRecord(<OrgId></OrgId>, OrganisationIdentification4(BICOrBEI = Some(originator))))))
                     case originator => PartyIdentification32(Nm = Some(originator))
                   },
-                Rsn = transaction._1.customFields.flatMap(json =>
-                  (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString).map(PaymentRecallReasonCode.withName)) match {
-                  case PaymentRecallReasonCode.DUPLICATE_PAYMENT => Some(CancellationReason2Choice(DataRecord(<Cd></Cd>, PaymentRecallReasonCode.DUPLICATE_PAYMENT.toString)))
-                  case PaymentRecallReasonCode.TECHNICAL_PROBLEM => Some(CancellationReason2Choice(DataRecord(<Prtry></Prtry>, PaymentRecallReasonCode.TECHNICAL_PROBLEM.toString)))
-                  case PaymentRecallReasonCode.FRAUDULENT_ORIGIN => Some(CancellationReason2Choice(DataRecord(<Prtry></Prtry>, PaymentRecallReasonCode.FRAUDULENT_ORIGIN.toString)))
+                Rsn = PaymentRecallReasonCode.withName(transaction._1.customFields.flatMap(json =>
+                  (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString)).getOrElse("")) match {
+                  case DUPLICATE_PAYMENT => Some(CancellationReason2Choice(DataRecord(<Cd></Cd>, DUPLICATE_PAYMENT.toString)))
+                  case TECHNICAL_PROBLEM => Some(CancellationReason2Choice(DataRecord(<Prtry></Prtry>, TECHNICAL_PROBLEM.toString)))
+                  case FRAUDULENT_ORIGIN => Some(CancellationReason2Choice(DataRecord(<Prtry></Prtry>, FRAUDULENT_ORIGIN.toString)))
+                  case REQUESTED_BY_CUSTOMER => Some(CancellationReason2Choice(DataRecord(<Cd></Cd>, REQUESTED_BY_CUSTOMER.toString)))
+                  case WRONG_AMOUNT => Some(CancellationReason2Choice(DataRecord(<Prtry></Prtry>, WRONG_AMOUNT.toString)))
+                  case INVALID_CREDITOR_ACCOUNT_NUMBER => Some(CancellationReason2Choice(DataRecord(<Prtry></Prtry>, INVALID_CREDITOR_ACCOUNT_NUMBER.toString)))
                 },
                 AddtlInf = transaction._1.customFields.flatMap(json =>
-                  (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString).map(PaymentRecallReasonCode.withName).flatMap {
-                    case PaymentRecallReasonCode.FRAUDULENT_ORIGIN => (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString).headOption.flatMap(_.asString)
+                  (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString).map(withName).flatMap {
+                    case FRAUDULENT_ORIGIN | REQUESTED_BY_CUSTOMER | WRONG_AMOUNT | INVALID_CREDITOR_ACCOUNT_NUMBER =>
+                      (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString).headOption.flatMap(_.asString)
                   }
                 ).toSeq
               )),
@@ -129,6 +144,7 @@ object PaymentRecallMessage {
             purposeCode = None,
             description = xmlTransaction.OrgnlTxRef.flatMap(_.RmtInf.flatMap(_.Ustrd.headOption)),
             creationDateTime = LocalDateTime.now(),
+            settlementDate = xmlTransaction.OrgnlIntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             instructionId = xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
             status = SepaCreditTransferTransactionStatus.RECALLED,
@@ -157,6 +173,40 @@ object PaymentRecallMessage {
   }
 
 
-  def recallTransaction(transactionToReturn: SepaCreditTransferTransaction, originalsepaMessage: SepaMessage, paymentRecallReasonCode: PaymentRecallReasonCode) = {}
-
+  def recallTransaction(transactionToRecall: SepaCreditTransferTransaction, originator: String, paymentRecallReasonCode: PaymentRecallReasonCode, additionalInformation: Option[String], obpTransactionRequestId: Option[UUID] = None): Future[Unit] = {
+    for {
+      originalSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transactionToRecall.id).map(_.find(_.messageType == SepaMessageType.B2B_CREDIT_TRANSFER))
+      recallSepaMessage <- {
+        val sepaMessageId = UUID.randomUUID()
+        val message = SepaMessage(
+          sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_PAYMENT_RECALL,
+          SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
+          numberOfTransactions = 1, totalAmount = transactionToRecall.amount, None,
+          instigatingAgent = transactionToRecall.debtorAgent.orElse(Some(Adapter.BANK_BIC)), // Mandatory for a recall
+          instigatedAgent = transactionToRecall.creditorAgent.orElse(Some(Adapter.CSM_BIC)), // Mandatory for a recall
+          None
+        )
+        for {
+          _ <- message.insert()
+        } yield message
+      }
+      _ <- transactionToRecall.copy(
+        status = SepaCreditTransferTransactionStatus.TO_RECALL,
+        customFields = Some(transactionToRecall.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
+          .deepMerge(Json.fromJsonObject(JsonObject.empty
+            .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINATOR.toString,
+              Json.fromString(originator))
+            .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString,
+              Json.fromString(paymentRecallReasonCode.toString))
+            .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString,
+              Json.fromString(additionalInformation.getOrElse("")))
+            .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
+              Json.fromString(originalSepaMessage.map(_.messageIdInSepaFile).getOrElse("")))
+            .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINAL_MESSAGE_TYPE.toString,
+              Json.fromString(originalSepaMessage.map(_.messageType.toString).getOrElse(""))))))
+      ).update()
+      transactionStatusIdInSepaFile = SepaUtil.removeDashesToUUID(UUID.randomUUID())
+      _ <- transactionToRecall.linkMessage(recallSepaMessage.id, transactionStatusIdInSepaFile, obpTransactionRequestId, None)
+    } yield ()
+  }
 }

@@ -1,6 +1,6 @@
 package model
 
-import java.time.LocalDateTime
+import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
 import com.openbankproject.commons.model.{Iban, TransactionId, TransactionRequestId}
@@ -30,12 +30,12 @@ case class SepaCreditTransferTransaction(
                                           purposeCode: Option[String],
                                           description: Option[String],
                                           creationDateTime: LocalDateTime,
+                                          settlementDate: Option[LocalDate],
                                           transactionIdInSepaFile: String,
                                           instructionId: Option[String],
                                           endToEndId: String,
                                           status: SepaCreditTransferTransactionStatus,
                                           customFields: Option[Json]
-                                          // TODO : Add fields settlementDate, settlementInformation, paymentInformation, ...
                                         ) {
   def insert(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions += this))
 
@@ -81,7 +81,7 @@ case class SepaCreditTransferTransaction(
 }
 
 object SepaCreditTransferTransaction {
-  def fromXML(transaction: CreditTransferTransactionInformation11able, creationDateTime: LocalDateTime): SepaCreditTransferTransaction = {
+  def fromXML(transaction: CreditTransferTransactionInformation11able, settlementDate: Option[LocalDate]): SepaCreditTransferTransaction = {
     SepaCreditTransferTransaction(
       id = UUID.randomUUID(),
       amount = transaction.IntrBkSttlmAmt.value,
@@ -94,6 +94,7 @@ object SepaCreditTransferTransaction {
       purposeCode = transaction.Purp.map(_.purpose2choicableoption.value),
       description = transaction.RmtInf.flatMap(_.Ustrd.headOption),
       creationDateTime = LocalDateTime.now(),
+      settlementDate = settlementDate,
       transactionIdInSepaFile = transaction.PmtId.TxId,
       instructionId = transaction.PmtId.InstrId,
       endToEndId = transaction.PmtId.EndToEndId,

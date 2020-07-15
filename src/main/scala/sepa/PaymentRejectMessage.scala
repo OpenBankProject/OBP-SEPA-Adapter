@@ -58,6 +58,7 @@ object PaymentRejectMessage {
             None,
             xmlTransaction.OrgnlTxRef.flatMap(_.RmtInf.flatMap(_.Ustrd.headOption)),
             creationDateTime = LocalDateTime.now(),
+            settlementDate = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
             status = SepaCreditTransferTransactionStatus.REJECTED,

@@ -13,6 +13,9 @@ object Adapter extends App {
 
   val VIEW_ID = ViewId("owner")
 
+  val CSM_BIC = Bic("EBAPFRPPPSA")
+  val CSM_NAME = Bic("EBA CLEARING")
+
   val config = ConfigFactory.load()
   val systemName = "SouthSideAkkaConnector_" + config.getString("akka.remote.netty.tcp.hostname").replace('.', '-')
   val system = ActorSystem.create(systemName, config)
