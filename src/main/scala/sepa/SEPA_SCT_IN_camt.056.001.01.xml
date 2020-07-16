@@ -1,0 +1,79 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.056.001.01">
+    <FIToFIPmtCxlReq>
+        <Assgnmt>
+            <Id>fkpezofepafueizgiagre</Id>
+            <Assgnr>
+                <Agt>
+                    <FinInstnId>
+                        <BIC>NTSBDEB1XXX</BIC>
+                    </FinInstnId>
+                </Agt>
+            </Assgnr>
+            <Assgne>
+                <Agt>
+                    <FinInstnId>
+                        <BIC>OBPBDEB1XXX</BIC>
+                    </FinInstnId>
+                </Agt>
+            </Assgne>
+            <CreDtTm>2020-07-16T14:12:28.727+02:00</CreDtTm>
+        </Assgnmt>
+        <CtrlData>
+            <NbOfTxs>1</NbOfTxs>
+        </CtrlData>
+        <Undrlyg>
+            <TxInf>
+                <CxlId>pmapzdoazfjueuizfhuezfezo1f45ds</CxlId>
+                <OrgnlGrpInf>
+                    <OrgnlMsgId>ghtrjtrjyjyjuloimoiasss</OrgnlMsgId>
+                    <OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
+                </OrgnlGrpInf>
+                <OrgnlEndToEndId>nkuykuu9yk4u8y9rk7u9r8</OrgnlEndToEndId>
+                <OrgnlTxId>aa9aa99az8z8r78ezr79e988456fsd</OrgnlTxId>
+                <OrgnlIntrBkSttlmAmt Ccy="EUR">20</OrgnlIntrBkSttlmAmt>
+                <OrgnlIntrBkSttlmDt>2020-07-17</OrgnlIntrBkSttlmDt>
+                <CxlRsnInf>
+                    <Orgtr>
+                        <Nm>Louis Dupont</Nm>
+                    </Orgtr>
+                    <Rsn>
+                        <Prtry>AC03</Prtry>
+                    </Rsn>
+                    <AddtlInf>Oups, bad account</AddtlInf>
+                </CxlRsnInf>
+                <OrgnlTxRef>
+                    <RmtInf>
+                        <Ustrd>Test transaction description</Ustrd>
+                    </RmtInf>
+                    <Dbtr>
+                        <Nm>Louis Dupont</Nm>
+                    </Dbtr>
+                    <DbtrAcct>
+                        <Id>
+                            <IBAN>DE89370400440532013002</IBAN>
+                        </Id>
+                    </DbtrAcct>
+                    <DbtrAgt>
+                        <FinInstnId>
+                            <BIC>NTSBDEB1XXX</BIC>
+                        </FinInstnId>
+                    </DbtrAgt>
+                    <CdtrAgt>
+                        <FinInstnId>
+                            <BIC>OBPBDEB1XXX</BIC>
+                        </FinInstnId>
+                    </CdtrAgt>
+                    <Cdtr>
+                        <Nm>guillaume</Nm>
+                    </Cdtr>
+                    <CdtrAcct>
+                        <Id>
+                            <IBAN>DE65500105176582659391</IBAN>
+                        </Id>
+                    </CdtrAcct>
+                </OrgnlTxRef>
+            </TxInf>
+        </Undrlyg>
+    </FIToFIPmtCxlReq>
+</Document>

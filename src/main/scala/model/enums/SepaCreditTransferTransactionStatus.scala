@@ -9,6 +9,10 @@ object SepaCreditTransferTransactionStatus extends Enumeration {
   val UNPROCESSED: SepaCreditTransferTransactionStatus.Value = Value
   val PROCESSING_ERROR: SepaCreditTransferTransactionStatus.Value = Value
 
+  val TO_TRANSFER: SepaCreditTransferTransactionStatus.Value = Value
+  val TRANSFERED: SepaCreditTransferTransactionStatus.Value = Value
+  val TRANSFER_ERROR: SepaCreditTransferTransactionStatus.Value = Value
+
   val TO_RETURN: enums.SepaCreditTransferTransactionStatus.Value = Value
   val RETURNED: enums.SepaCreditTransferTransactionStatus.Value = Value
   val RETURN_ERROR: enums.SepaCreditTransferTransactionStatus.Value = Value

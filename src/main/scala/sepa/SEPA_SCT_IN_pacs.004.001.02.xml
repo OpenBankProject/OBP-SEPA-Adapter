@@ -2,25 +2,25 @@
 <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.004.001.02">
     <PmtRtr>
         <GrpHdr>
-            <MsgId>ggfgfdsgazzaez</MsgId>
+            <MsgId>gregregregrezrghre</MsgId>
             <CreDtTm>2020-07-06T16:18:32.077+02:00</CreDtTm>
             <NbOfTxs>1</NbOfTxs>
-            <TtlRtrdIntrBkSttlmAmt Ccy="EUR">10</TtlRtrdIntrBkSttlmAmt>
+            <TtlRtrdIntrBkSttlmAmt Ccy="EUR">50</TtlRtrdIntrBkSttlmAmt>
             <IntrBkSttlmDt>2020-07-07</IntrBkSttlmDt>
             <SttlmInf>
                 <SttlmMtd>CLRG</SttlmMtd>
             </SttlmInf>
         </GrpHdr>
         <OrgnlGrpInf>
-            <OrgnlMsgId>fezfezfez</OrgnlMsgId>
+            <OrgnlMsgId>71a3c56ed4a94bc5b9552ed22a6eb532</OrgnlMsgId>
             <OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
         </OrgnlGrpInf>
         <TxInf>
-            <RtrId>fezfezfezggrgre</RtrId>
-            <OrgnlEndToEndId>gfdgfsbvfvfv</OrgnlEndToEndId>
-            <OrgnlTxId>vcxbxvbvxcbvxcbvxcb</OrgnlTxId>
-            <OrgnlIntrBkSttlmAmt Ccy="EUR">10</OrgnlIntrBkSttlmAmt>
-            <RtrdIntrBkSttlmAmt Ccy="EUR">10</RtrdIntrBkSttlmAmt>
+            <RtrId>fkezopfjezofhezguregzyu</RtrId>
+            <OrgnlEndToEndId>24ab9e44579a49a9bec5a09288adf349</OrgnlEndToEndId>
+            <OrgnlTxId>24ab9e44579a49a9bec5a09288adf349</OrgnlTxId>
+            <OrgnlIntrBkSttlmAmt Ccy="EUR">50</OrgnlIntrBkSttlmAmt>
+            <RtrdIntrBkSttlmAmt Ccy="EUR">50</RtrdIntrBkSttlmAmt>
             <ChrgBr>SLEV</ChrgBr>
             <RtrRsnInf>
                 <Orgtr>
@@ -31,7 +31,7 @@
                     </Id>
                 </Orgtr>
                 <Rsn>
-                    <Cd>AC01</Cd>
+                    <Cd>FOCR</Cd>
                 </Rsn>
             </RtrRsnInf>
             <OrgnlTxRef>
@@ -43,7 +43,7 @@
                 </Dbtr>
                 <DbtrAcct>
                     <Id>
-                        <IBAN>DE65500105176582659397</IBAN>
+                        <IBAN>DE65500105176582659391</IBAN>
                     </Id>
                 </DbtrAcct>
                 <DbtrAgt>

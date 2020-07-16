@@ -7,18 +7,18 @@ import model.types.Bic
 
 object Adapter extends App {
 
-  // Information about the bank using the adapter
-  val BANK_ID = BankId("THE_DEFAULT_BANK_ID")
-  val BANK_BIC = Bic("OBPBDEB1XXX")
-
-  val VIEW_ID = ViewId("owner")
-
-  val CSM_BIC = Bic("EBAPFRPPPSA")
-  val CSM_NAME = Bic("EBA CLEARING")
-
   val config = ConfigFactory.load()
   val systemName = "SouthSideAkkaConnector_" + config.getString("akka.remote.netty.tcp.hostname").replace('.', '-')
   val system = ActorSystem.create(systemName, config)
   system.actorOf(Props.create(classOf[AkkaConnectorActor]), "akka-connector-actor")
+
+  // Information about the bank using the adapter
+  def BANK_ID = BankId("THE_DEFAULT_BANK_ID")
+  def BANK_BIC = Bic("OBPBDEB1XXX")
+
+  def VIEW_ID = ViewId("owner")
+
+  def CSM_BIC = Bic("EBAPFRPPPSA")
+  def CSM_NAME = Bic("EBA CLEARING")
 
 }

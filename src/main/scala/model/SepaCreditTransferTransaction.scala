@@ -5,7 +5,7 @@ import java.util.UUID
 
 import com.openbankproject.commons.model.{Iban, TransactionId, TransactionRequestId}
 import io.circe.Json
-import model.Schema.sepaCreditTransferTransactionStatusColumnType
+import model.Schema.{obpTransactionIdColumnType, obpTransactionRequestIdColumnType, sepaCreditTransferTransactionStatusColumnType}
 import model.enums.SepaCreditTransferTransactionStatus
 import model.enums.SepaCreditTransferTransactionStatus.SepaCreditTransferTransactionStatus
 import model.types.Bic
@@ -41,11 +41,11 @@ case class SepaCreditTransferTransaction(
 
   def update(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions.filter(_.id === this.id).update(this)))
 
-  def linkMessage(sepaMessageId: UUID, transactionStatusIdInSepaFile: String, obpTransactionRequestId: Option[UUID], obpTransactionId: Option[UUID]): Future[Unit] = Schema.db.run(
+  def linkMessage(sepaMessageId: UUID, transactionStatusIdInSepaFile: String, obpTransactionRequestId: Option[TransactionRequestId], obpTransactionId: Option[TransactionId]): Future[Unit] = Schema.db.run(
     DBIOAction.seq(Schema.sepaTransactionMessages += SepaTransactionMessage(this.id, sepaMessageId, transactionStatusIdInSepaFile, obpTransactionRequestId, obpTransactionId))
   )
 
-  def updateMessageLink(sepaMessageId: UUID, transactionStatusIdInSepaFile: String, obpTransactionRequestId: Option[UUID], obpTransactionId: Option[UUID]): Future[Unit] = Schema.db.run(
+  def updateMessageLink(sepaMessageId: UUID, transactionStatusIdInSepaFile: String, obpTransactionRequestId: Option[TransactionRequestId], obpTransactionId: Option[TransactionId]): Future[Unit] = Schema.db.run(
     DBIOAction.seq(
       Schema.sepaTransactionMessages
         .filter(transactionMessage => transactionMessage.sepaCreditTransferTransactionId === this.id && transactionMessage.sepaMessageId === sepaMessageId)
@@ -120,7 +120,7 @@ object SepaCreditTransferTransaction {
   def getByObpTransactionId(obpTransactionId: TransactionId): Future[Option[SepaCreditTransferTransaction]] =
     Schema.db.run(
       Schema.sepaTransactionMessages
-        .filter(_.obpTransactionId === UUID.fromString(obpTransactionId.value))
+        .filter(_.obpTransactionId === obpTransactionId)
         .join(Schema.sepaCreditTransferTransactions)
         .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
         .map(_._2)
@@ -130,7 +130,7 @@ object SepaCreditTransferTransaction {
   def getByObpTransactionRequestId(obpTransactionRequestId: TransactionRequestId): Future[Option[SepaCreditTransferTransaction]] =
     Schema.db.run(
       Schema.sepaTransactionMessages
-        .filter(_.obpTransactionRequestId === UUID.fromString(obpTransactionRequestId.value))
+        .filter(_.obpTransactionRequestId === obpTransactionRequestId)
         .join(Schema.sepaCreditTransferTransactions)
         .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
         .map(_._2)

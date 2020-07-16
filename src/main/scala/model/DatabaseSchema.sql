@@ -51,6 +51,6 @@ CREATE TABLE sepa_transaction_message
     sepa_credit_transfer_transaction_id uuid REFERENCES sepa_credit_transfer_transaction (id),
     sepa_message_id                     uuid REFERENCES sepa_message (id),
     transaction_status_id_in_sepa_file  varchar,
-    obp_transaction_request_id          uuid,
-    obp_transaction_id                  uuid
+    obp_transaction_request_id          varchar,
+    obp_transaction_id                  varchar
 );

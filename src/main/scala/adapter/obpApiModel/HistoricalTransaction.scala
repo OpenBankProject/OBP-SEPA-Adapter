@@ -1,5 +1,7 @@
 package adapter.obpApiModel
 
+import java.time.format.DateTimeFormatter
+
 import io.circe.Json
 
 case class HistoricalTransactionJson(
@@ -25,3 +27,7 @@ case class CustomerAccountReference(
                                      account_iban: String,
                                      bank_bic: Option[String]
                                    ) extends AccountReference
+
+object HistoricalTransactionJson {
+  val jsonDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+}

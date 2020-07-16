@@ -3,7 +3,7 @@ package sepa
 import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
 
-import com.openbankproject.commons.model.Iban
+import com.openbankproject.commons.model.{Iban, TransactionId, TransactionRequestId}
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
@@ -164,7 +164,7 @@ object PaymentReturnMessage {
   }
 
 
-  def returnTransaction(transactionToReturn: SepaCreditTransferTransaction, originator: String, paymentReturnReasonCode: PaymentReturnReasonCode, obpTransactionRequestId: Option[UUID] = None, obpTransactionId: Option[UUID] = None): Future[Unit] = {
+  def returnTransaction(transactionToReturn: SepaCreditTransferTransaction, originator: String, paymentReturnReasonCode: PaymentReturnReasonCode, obpTransactionRequestId: Option[TransactionRequestId] = None, obpTransactionId: Option[TransactionId] = None): Future[Unit] = {
     for {
       originalSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transactionToReturn.id).map(_.find(_.messageType == SepaMessageType.B2B_CREDIT_TRANSFER))
       returnSepaMessage <- SepaMessage.getUnprocessedByType(SepaMessageType.B2B_PAYMENT_RETURN).map(_.headOption).flatMap {

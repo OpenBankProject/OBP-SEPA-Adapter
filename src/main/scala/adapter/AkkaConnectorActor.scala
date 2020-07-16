@@ -1,7 +1,6 @@
 package adapter
 
 import java.time.{LocalDate, LocalDateTime}
-import java.time.format.DateTimeFormatter
 import java.util.{Date, UUID}
 
 import adapter.obpApiModel.{CounterpartyAccountReference, CustomerAccountReference, HistoricalTransactionJson, ObpApi}
@@ -13,8 +12,8 @@ import com.openbankproject.commons.model.enums.TransactionRequestStatus
 import io.circe.generic.auto._
 import io.circe.syntax._
 import model.enums.sepaReasonCodes.PaymentRecallReasonCode._
+import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
-import model.enums.sepaReasonCodes.{PaymentRecallReasonCode, PaymentReturnReasonCode}
 import model.enums.{SepaCreditTransferTransactionStatus, SepaMessageStatus, SepaMessageType}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
@@ -49,8 +48,6 @@ class AkkaConnectorActor extends Actor with ActorLogging {
       println("Make payment message received")
 
       val obpAkkaConnector = sender
-
-      val jsonDateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
 
       transactionRequestType.value match {
         case "SEPA" =>
@@ -91,8 +88,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               amount = creditTransferTransaction.amount.toString
             ).asJson,
             description = creditTransferTransaction.description.getOrElse(""),
-            posted = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
-            completed = creditTransferTransaction.creationDateTime.format(jsonDateTimeFormatter),
+            posted = creditTransferTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+            completed = creditTransferTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
             `type` = transactionRequestType.value,
             charge_policy = chargePolicy
           )
@@ -114,7 +111,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               case Success(message) => creditTransferTransaction.linkMessage(
                 sepaMessageId = message.id,
                 transactionStatusIdInSepaFile = creditTransferTransaction.transactionIdInSepaFile,
-                obpTransactionRequestId = Some(UUID.fromString(transactionRequestId.value)),
+                obpTransactionRequestId = Some(transactionRequestId),
                 obpTransactionId = Some(createdObpTransactionId)
               )
                 message.copy(
@@ -152,6 +149,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               } yield fromAccountIban == originalTransactionCreditorIban && toAccountIban == originalTransactionDebtorIban).getOrElse(false)
 
               if (transactionRequestValid) {
+                // TODO : We can use the sepa file direction to detect which account to request to the API
                 val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
                 val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
                 val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
@@ -178,8 +176,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                       amount = originalTransaction.amount.toString
                     ).asJson,
                     description = description,
-                    posted = originalTransaction.creationDateTime.format(jsonDateTimeFormatter),
-                    completed = originalTransaction.creationDateTime.format(jsonDateTimeFormatter),
+                    posted = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                    completed = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
                     `type` = transactionRequestType.value,
                     charge_policy = chargePolicy
                   )
@@ -187,7 +185,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                     createdObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
                     _ <- PaymentReturnMessage.returnTransaction(
                       originalTransaction, originalTransaction.creditorName.orElse(originalTransaction.creditorAgent.map(_.bic)).getOrElse(""),
-                      refundReasonCode, Some(UUID.fromString(transactionRequestId.value)), Some(createdObpTransactionId))
+                      refundReasonCode, Some(transactionRequestId), Some(createdObpTransactionId))
                   } yield {
                     val result = InBoundMakePaymentv210(
                       inboundAdapterCallContext = InboundAdapterCallContext(
@@ -216,8 +214,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                       amount = originalTransaction.amount.toString
                     ).asJson,
                     description = description,
-                    posted = originalTransaction.creationDateTime.format(jsonDateTimeFormatter),
-                    completed = originalTransaction.creationDateTime.format(jsonDateTimeFormatter),
+                    posted = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                    completed = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
                     `type` = transactionRequestType.value,
                     charge_policy = chargePolicy
                   )
@@ -268,6 +266,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               } yield fromAccountIban == originalTransactionCreditorIban && toAccountIban == originalTransactionDebtorIban).getOrElse(false)
 
               if (transactionRequestValid) {
+                // TODO : We can use the sepa file direction to detect which account to request to the API
                 val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
                 val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
                 val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
@@ -290,10 +289,10 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   val additionalInformation = transactionRequest.body.description.split(" - ").reverse.drop(2).reverse.mkString(" - ")
                   for {
                     _ <- PaymentRecallMessage.recallTransaction(originalTransaction, originator, paymentRecallReasonCode, Some(additionalInformation),
-                    Some(UUID.fromString(transactionRequest.id.value)))
+                      Some(transactionRequest.id))
                   } yield TransactionRequestStatus.FORWARDED
-                    }
-                  ))
+                }
+                ))
               } else {
                 log.error(s"Transaction request invalid, counterparty_iban don't match with the original SEPA transaction ${originalTransaction.id} (OBP original transaction : ${originalObpTransactionId.value}). Maybe the errror is coming from the to/from field name")
                 Future.successful(TransactionRequestStatus.FAILED)
@@ -313,8 +312,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
           callContext.generalContext
         ), successInBoundStatus, status)
         obpAkkaConnector ! result
-      }
-    )
+      })
 
     case _ => println(s"Message received but not implemented")
   }

@@ -4,7 +4,7 @@ import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
 
 import adapter.Adapter
-import com.openbankproject.commons.model.Iban
+import com.openbankproject.commons.model.{Iban, TransactionRequestId}
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
@@ -155,9 +155,8 @@ object PaymentRecallMessage {
                     case ordId: OrganisationIdentification4 => ordId.BICOrBEI
                   })))).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString,
-                Json.fromString(xmlTransaction.CxlRsnInf.headOption.flatMap(_.Rsn.map(_.cancellationreason2choicableoption.value match {
-                  case reasonCode: CancellationReason2Choice => reasonCode.cancellationreason2choicableoption.value.toString
-                })).getOrElse("")))
+                Json.fromString(xmlTransaction.CxlRsnInf.headOption.flatMap(_.Rsn.map(_.cancellationreason2choicableoption.value.toString))
+                  .getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString,
                 Json.fromString(xmlTransaction.CxlRsnInf.headOption.flatMap(_.AddtlInf.headOption).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
@@ -173,7 +172,7 @@ object PaymentRecallMessage {
   }
 
 
-  def recallTransaction(transactionToRecall: SepaCreditTransferTransaction, originator: String, paymentRecallReasonCode: PaymentRecallReasonCode, additionalInformation: Option[String], obpTransactionRequestId: Option[UUID] = None): Future[Unit] = {
+  def recallTransaction(transactionToRecall: SepaCreditTransferTransaction, originator: String, paymentRecallReasonCode: PaymentRecallReasonCode, additionalInformation: Option[String], obpTransactionRequestId: Option[TransactionRequestId] = None): Future[Unit] = {
     for {
       originalSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transactionToRecall.id).map(_.find(_.messageType == SepaMessageType.B2B_CREDIT_TRANSFER))
       recallSepaMessage <- {
