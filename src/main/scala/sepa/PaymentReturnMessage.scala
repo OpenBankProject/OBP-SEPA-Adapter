@@ -22,7 +22,7 @@ import scala.xml.{Elem, NodeSeq}
 case class PaymentReturnMessage(
                                  message: SepaMessage,
                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                               ) {
+                               ) extends SctMessage {
   def toXML: NodeSeq = {
     val document = Document(
       PaymentReturnV02(

@@ -23,7 +23,7 @@ import scala.xml.{Elem, NodeSeq}
 case class PaymentRecallNegativeAnswerMessage(
                                                message: SepaMessage,
                                                creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                                             ) {
+                                             ) extends SctMessage {
   def toXML: NodeSeq = {
     val document = Document(
       ResolutionOfInvestigationV03(
@@ -157,7 +157,7 @@ object PaymentRecallNegativeAnswerMessage {
             settlementDate = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             instructionId = xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
-            status = SepaCreditTransferTransactionStatus.RECALL_REJECTED,
+            status = SepaCreditTransferTransactionStatus.RECALL_REFUSED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString,
                 Json.fromValues(xmlTransaction.CxlStsRsnInf.map(reasonInformation =>
@@ -205,7 +205,7 @@ object PaymentRecallNegativeAnswerMessage {
         } yield message
       }
       _ <- sepaCreditTransferTransaction.copy(
-        status = SepaCreditTransferTransactionStatus.TO_RECALL_REJECT,
+        status = SepaCreditTransferTransactionStatus.TO_RECALL_REFUSED,
         customFields = Some(sepaCreditTransferTransaction.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
           .deepMerge(Json.fromJsonObject(JsonObject.empty
             .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString,

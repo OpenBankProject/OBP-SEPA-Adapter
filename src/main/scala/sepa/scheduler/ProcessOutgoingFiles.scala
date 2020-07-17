@@ -4,10 +4,10 @@ import java.nio.file.Path
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
-import model.enums.SepaMessageType.SepaMessageType
+import model.enums.SepaMessageType.{SepaMessageType, _}
 import model.enums._
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
-import sepa.{CreditTransferMessage, PaymentRecallMessage, PaymentReturnMessage}
+import sepa.{CreditTransferMessage, PaymentRecallMessage, PaymentRecallNegativeAnswerMessage, PaymentReturnMessage, SctMessage}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -21,50 +21,29 @@ object ProcessOutgoingFiles extends App {
     val outgoingFile = generateSepaFileFromSepaMessageType(message.messageType)
     val settlementDate = LocalDate.now.plusDays(1)
 
-    message match {
-      case message: SepaMessage if message.messageType == SepaMessageType.B2B_CREDIT_TRANSFER =>
-        for {
-          updatedMessage <- Future(message.copy(status = SepaMessageStatus.PROCESSING_IN_PROGRESS, settlementDate = Some(settlementDate)))
-          _ <- updatedMessage.update()
-          creditTransferMessage <- SepaCreditTransferTransaction.getBySepaMessageId(updatedMessage.id).map(transactions => CreditTransferMessage(updatedMessage, transactions.map(_._1)))
-          _ <- Future(XML.save(outgoingFile.path.toString, creditTransferMessage.toXML.head, "UTF-8", xmlDecl = true, null))
-          _ <- outgoingFile.insert()
-          _ <- Future.sequence(creditTransferMessage.creditTransferTransactions
-            .map(_.copy(status = SepaCreditTransferTransactionStatus.PROCESSED, settlementDate = Some(settlementDate)).update()))
-          _ <- creditTransferMessage.message.copy(sepaFileId = Some(outgoingFile.id), status = SepaMessageStatus.PROCESSED).update()
-          _ <- outgoingFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
-          _ <- Future(println(s"${creditTransferMessage.creditTransferTransactions.length} transactions accounted in file ${outgoingFile.name}"))
-        } yield ()
-
-
-      case message: SepaMessage if message.messageType == SepaMessageType.B2B_PAYMENT_RETURN =>
-        for {
-          updatedMessage <- Future(message.copy(status = SepaMessageStatus.PROCESSING_IN_PROGRESS, settlementDate = Some(settlementDate)))
-          _ <- updatedMessage.update()
-          paymentReturnMessage <- SepaCreditTransferTransaction.getBySepaMessageId(updatedMessage.id).map(transactions => PaymentReturnMessage(updatedMessage, transactions))
-          _ <- Future(XML.save(outgoingFile.path.toString, paymentReturnMessage.toXML.head, "UTF-8", xmlDecl = true, null))
-          _ <- outgoingFile.insert()
-          _ <- Future.sequence(paymentReturnMessage.creditTransferTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.RETURNED).update()))
-          _ <- paymentReturnMessage.message.copy(sepaFileId = Some(outgoingFile.id), status = SepaMessageStatus.PROCESSED).update()
-          _ <- outgoingFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
-          _ <- Future(println(s"${paymentReturnMessage.creditTransferTransactions.length} transactions returned in file ${outgoingFile.name}"))
-        } yield ()
-
-      case message: SepaMessage if message.messageType == SepaMessageType.B2B_PAYMENT_RECALL =>
-        for {
-          updatedMessage <- Future(message.copy(status = SepaMessageStatus.PROCESSING_IN_PROGRESS))
-          _ <- updatedMessage.update()
-          paymentRecallMessage <- SepaCreditTransferTransaction.getBySepaMessageId(updatedMessage.id).map(transactions => PaymentRecallMessage(updatedMessage, transactions))
-          _ <- Future(XML.save(outgoingFile.path.toString, paymentRecallMessage.toXML.head, "UTF-8", xmlDecl = true, null))
-          _ <- outgoingFile.insert()
-          _ <- Future.sequence(paymentRecallMessage.creditTransferTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.RECALLED).update()))
-          _ <- paymentRecallMessage.message.copy(sepaFileId = Some(outgoingFile.id), status = SepaMessageStatus.PROCESSED).update()
-          _ <- outgoingFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
-          _ <- Future(println(s"${paymentRecallMessage.creditTransferTransactions.length} transactions recalled in file ${outgoingFile.name}"))
-        } yield ()
-
-      case _ => Future(println("Unknow SEPA message type"))
-    }
+    for {
+      updatedMessage <- Future(message.copy(status = SepaMessageStatus.PROCESSING_IN_PROGRESS, settlementDate = Some(settlementDate)))
+      _ <- updatedMessage.update()
+      sctMessage: SctMessage <- SepaCreditTransferTransaction.getBySepaMessageId(updatedMessage.id).map(transactions =>
+        message.messageType match {
+          case B2B_CREDIT_TRANSFER => CreditTransferMessage(updatedMessage, transactions)
+          case B2B_PAYMENT_RETURN => PaymentReturnMessage(updatedMessage, transactions)
+          case B2B_PAYMENT_RECALL => PaymentRecallMessage(updatedMessage, transactions)
+          case B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => PaymentRecallNegativeAnswerMessage(updatedMessage, transactions)
+        })
+      _ <- Future(XML.save(outgoingFile.path.toString, sctMessage.toXML.head, "UTF-8", xmlDecl = true, null))
+      _ <- outgoingFile.insert()
+      _ <- Future.sequence(sctMessage.creditTransferTransactions.map(transaction =>
+        (message.messageType match {
+          case B2B_CREDIT_TRANSFER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFERED, settlementDate = Some(settlementDate))
+          case B2B_PAYMENT_RETURN => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RETURNED)
+          case B2B_PAYMENT_RECALL => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALLED)
+          case B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALL_REFUSED)
+        }).update()))
+      _ <- sctMessage.message.copy(sepaFileId = Some(outgoingFile.id), status = SepaMessageStatus.PROCESSED).update()
+      _ <- outgoingFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+      _ <- Future(println(s"${sctMessage.creditTransferTransactions.length} transactions accounted in file ${outgoingFile.name}"))
+    } yield ()
   }))
 
   Await.result(result, Duration.Inf)

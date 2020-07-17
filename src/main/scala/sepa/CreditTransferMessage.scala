@@ -15,8 +15,8 @@ import scala.xml.{Elem, NodeSeq}
 
 case class CreditTransferMessage(
                                   message: SepaMessage,
-                                  creditTransferTransactions: Seq[SepaCreditTransferTransaction]
-                                ) {
+                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
+                                ) extends SctMessage {
   def toXML: NodeSeq = {
     val document = Document(
       FIToFICustomerCreditTransferV02(
@@ -39,7 +39,7 @@ case class CreditTransferMessage(
           InstgAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
           InstdAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
         ),
-        CdtTrfTxInf = creditTransferTransactions.map(transaction => scalaxb.fromXML[CreditTransferTransactionInformation11](transaction.toXML))
+        CdtTrfTxInf = creditTransferTransactions.map(transaction => scalaxb.fromXML[CreditTransferTransactionInformation11](transaction._1.toXML))
       )
     )
     scalaxb.toXML[Document](document, "Document", defaultScope)
@@ -66,7 +66,9 @@ object CreditTransferMessage {
           customFields = None
         ),
         creditTransferTransactions = document.FIToFICstmrCdtTrf.CdtTrfTxInf.map(transaction =>
-          SepaCreditTransferTransaction.fromXML(transaction, document.FIToFICstmrCdtTrf.GrpHdr.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate))
+          (SepaCreditTransferTransaction.fromXML(transaction, document.FIToFICstmrCdtTrf.GrpHdr.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
+            transaction.PmtId.TxId
+            )
         )
       )
     )

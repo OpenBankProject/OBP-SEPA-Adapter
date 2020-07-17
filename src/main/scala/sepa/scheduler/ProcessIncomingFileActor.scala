@@ -38,42 +38,42 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
         case Success(creditTransferMessage) =>
           for {
             _ <- creditTransferMessage.message.insert()
-            _ <- Future.sequence(creditTransferMessage.creditTransferTransactions.map(_.insert()))
+            _ <- Future.sequence(creditTransferMessage.creditTransferTransactions.map(_._1.insert()))
             _ <- Future.sequence(creditTransferMessage.creditTransferTransactions.map(transaction =>
-              transaction.linkMessage(creditTransferMessage.message.id, transaction.transactionIdInSepaFile, None, None)))
+              transaction._1.linkMessage(creditTransferMessage.message.id, transaction._1.transactionIdInSepaFile, None, None)))
             integratedTransactions <- Future.sequence(creditTransferMessage.creditTransferTransactions.map(transaction => {
               val historicalTransactionJson = HistoricalTransactionJson(
                 from = CounterpartyAccountReference(
-                  counterparty_iban = transaction.debtorAccount.map(_.iban).getOrElse(""),
-                  bank_bic = transaction.debtorAgent.map(_.bic),
-                  counterparty_name = transaction.debtorName
+                  counterparty_iban = transaction._1.debtorAccount.map(_.iban).getOrElse(""),
+                  bank_bic = transaction._1.debtorAgent.map(_.bic),
+                  counterparty_name = transaction._1.debtorName
                 ).asJson,
                 to = CustomerAccountReference(
-                  account_iban = transaction.creditorAccount.map(_.iban).getOrElse(""),
-                  bank_bic = transaction.creditorAgent.map(_.bic)
+                  account_iban = transaction._1.creditorAccount.map(_.iban).getOrElse(""),
+                  bank_bic = transaction._1.creditorAgent.map(_.bic)
                 ).asJson,
                 value = AmountOfMoney(
                   currency = "EUR",
-                  amount = transaction.amount.toString
+                  amount = transaction._1.amount.toString
                 ).asJson,
-                description = transaction.description.getOrElse(""),
-                posted = transaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                completed = transaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                description = transaction._1.description.getOrElse(""),
+                posted = transaction._1.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                completed = transaction._1.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
                 `type` = "SEPA",
                 charge_policy = "SHARED"
               )
               ObpApi.saveHistoricalTransaction(historicalTransactionJson).flatMap(obpTransactionId =>
                 for {
-                  _ <- transaction.updateMessageLink(creditTransferMessage.message.id, transaction.transactionIdInSepaFile, None, Some(obpTransactionId))
-                  _ <- transaction.copy(status = SepaCreditTransferTransactionStatus.PROCESSED).update()
+                  _ <- transaction._1.updateMessageLink(creditTransferMessage.message.id, transaction._1.transactionIdInSepaFile, None, Some(obpTransactionId))
+                  _ <- transaction._1.copy(status = SepaCreditTransferTransactionStatus.PROCESSED).update()
                 } yield ()
               ).recoverWith {
                 case e: ObpAccountNotFoundException =>
                   log.error(e.getMessage)
-                  PaymentReturnMessage.returnTransaction(transaction, transaction.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic), PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
+                  PaymentReturnMessage.returnTransaction(transaction._1, transaction._1.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic), PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
                 case e: Exception =>
                   log.error(e.getMessage)
-                  transaction.copy(status = SepaCreditTransferTransactionStatus.TRANSFER_ERROR).update()
+                  transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFER_ERROR).update()
               }
             }
             ))
