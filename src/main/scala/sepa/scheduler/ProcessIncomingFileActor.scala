@@ -1,7 +1,7 @@
 package sepa.scheduler
 
 
-import java.time.LocalDateTime
+import java.time.{LocalDateTime, ZoneId, ZoneOffset}
 
 import adapter.obpApiModel._
 import adapter.{Adapter, ObpAccountNotFoundException}
@@ -13,7 +13,7 @@ import io.circe.{Json, JsonObject}
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage, SepaTransactionMessage}
-import sepa.{CreditTransferMessage, PaymentRecallMessage, PaymentRejectMessage, PaymentReturnMessage}
+import sepa._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -27,6 +27,8 @@ case class ProcessIncomingPaymentReturnMessage(xmlFile: Elem, sepaFile: SepaFile
 case class ProcessIncomingPaymentRejectMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 case class ProcessIncomingPaymentRecallMessage(xmlFile: Elem, sepaFile: SepaFile)
+
+case class ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 class ProcessIncomingFileActor extends Actor with ActorLogging {
 
@@ -57,8 +59,8 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                   amount = transaction._1.amount.toString
                 ).asJson,
                 description = transaction._1.description.getOrElse(""),
-                posted = transaction._1.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                completed = transaction._1.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                posted = transaction._1.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                completed = transaction._1.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
                 `type` = "SEPA",
                 charge_policy = "SHARED"
               )
@@ -70,6 +72,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
               ).recoverWith {
                 case e: ObpAccountNotFoundException =>
                   log.error(e.getMessage)
+                  log.error(s"Credit transfer transaction ${transaction._1.id} returned")
                   PaymentReturnMessage.returnTransaction(transaction._1, transaction._1.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic), PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
                 case e: Exception =>
                   log.error(e.getMessage)
@@ -79,7 +82,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             ))
             _ <- creditTransferMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
-            _ <- Future(println(s"${integratedTransactions.length} integrated transactions from file ${sepaFile.name}"))
+            _ <- Future(log.info(s"${integratedTransactions.length} integrated transactions from file ${sepaFile.name}"))
           } yield integratedTransactions
 
         case Failure(exception) =>
@@ -88,10 +91,9 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
           } yield exception
       }
       result.onComplete {
-        case Success(_) => context.system.terminate()
+        case Success(_) =>
         case Failure(exception) =>
           log.error(exception, exception.getMessage)
-          context.system.terminate()
       }
 
     case ProcessIncomingPaymentReturnMessage(xmlFile, sepaFile) =>
@@ -151,7 +153,10 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                               transactionRequestChallengeAnswer = TransactionRequestChallengeAnswer(challengeId, "123")
                               createdObpTransactionId <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, Adapter.VIEW_ID,
                                 TransactionRequestId(transactionMessage.obpTransactionRequestId.map(_.toString).getOrElse("")),
-                                transactionRequestChallengeAnswer)
+                                transactionRequestChallengeAnswer).flatMap {
+                                case Some(obpTransactionId) => Future.successful(obpTransactionId)
+                                case None => Future.failed(new Exception(s"ObpTransactionId is missing after challenge $challengeId completed"))
+                              }
                             } yield (transactionMessage.obpTransactionRequestId, createdObpTransactionId)
                           case None => Future.failed(new Exception(s"TransactionMessage link between SepaCreditTransferTransactionId ${transaction._1.id} and SepaMessageId ${recallMessage.map(_.id)} not found"))
                         }
@@ -259,7 +264,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                       SepaCreditTransferTransaction.getByTransactionIdInSepaFile(recalledTransaction._1.transactionIdInSepaFile).flatMap {
                         case Some(sepaCreditTransferTransaction) =>
                           val updatedTransaction = sepaCreditTransferTransaction.copy(
-                            status = SepaCreditTransferTransactionStatus.TO_RECALL,
+                            status = SepaCreditTransferTransactionStatus.RECALLED,
                             customFields = recalledTransaction._1.customFields.map(recalledTransactionJson =>
                               sepaCreditTransferTransaction.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
                                 .deepMerge(recalledTransactionJson)))
@@ -317,6 +322,84 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
           } yield log.error(exception.getMessage)
       }
 
+    // TODO : Refectorize this part with previous methods
+    case ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      PaymentRecallNegativeAnswerMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(paymentRecallNegativeAnswerMessage) =>
+          SepaMessage.getByMessageIdInSepaFile(paymentRecallNegativeAnswerMessage.message.messageIdInSepaFile).map {
+            case Some(alreadyExistingRecallNegativeAnswerMessage) =>
+              log.error(s"PaymentRecallNegativeAnswerMessage with idInSepaFile (${paymentRecallNegativeAnswerMessage.message.messageIdInSepaFile}) already exist in database with the messageId (${alreadyExistingRecallNegativeAnswerMessage.id}). File ${sepaFile.id} not integrated")
+              sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+            case None =>
+              for {
+                _ <- paymentRecallNegativeAnswerMessage.message.insert()
+                validRecallNegativeAnswerTransactions <- Future.sequence(paymentRecallNegativeAnswerMessage.creditTransferTransactions.map(recallNegativeAnswerTransaction =>
+                  SepaCreditTransferTransaction.getByTransactionStatusIdInSepaFile(recallNegativeAnswerTransaction._2) flatMap {
+                    case Some(alreadyRejectedRecallTransaction) =>
+                      log.error(s"Transaction with sepaRecallNegativeAnswerId (${recallNegativeAnswerTransaction._2}) in message ${paymentRecallNegativeAnswerMessage.message.id} already exist in database with the transactionId (${alreadyRejectedRecallTransaction.id}). Recalled Transaction ${recallNegativeAnswerTransaction} not integrated")
+                      Future(None)
+                    case None =>
+                      SepaCreditTransferTransaction.getByTransactionIdInSepaFile(recallNegativeAnswerTransaction._1.transactionIdInSepaFile).flatMap {
+                        case Some(sepaCreditTransferTransaction) =>
+                          val updatedTransaction = sepaCreditTransferTransaction.copy(
+                            status = SepaCreditTransferTransactionStatus.RECALL_REJECT,
+                            customFields = recallNegativeAnswerTransaction._1.customFields.map(transactionJson =>
+                              sepaCreditTransferTransaction.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
+                                .deepMerge(transactionJson)))
+                          for {
+                            _ <- updatedTransaction.update()
+                          } yield Some((updatedTransaction, recallNegativeAnswerTransaction._2))
+                        case None =>
+                          log.warning(s"Recall negative answer transaction with OriginalTransactionIdInSepaFile (${recallNegativeAnswerTransaction._1.transactionIdInSepaFile}) received. But original transaction not found in the database. Transaction integrated with id (${recallNegativeAnswerTransaction._1.id})")
+                          for {
+                            _ <- recallNegativeAnswerTransaction._1.insert()
+                          } yield Some((recallNegativeAnswerTransaction._1, recallNegativeAnswerTransaction._2))
+                      }
+                  }
+                ))
+                _ <- Future.sequence(validRecallNegativeAnswerTransactions.flatMap(_.map(transaction =>
+                  transaction._1.linkMessage(paymentRecallNegativeAnswerMessage.message.id, transaction._2, None, None))))
+                _ <- Future.sequence(validRecallNegativeAnswerTransactions.flatMap(_.map(transaction => {
+                  for {
+                    originalRecallSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transaction._1.id)
+                      .map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL))
+                    transactionRecallMessageLink <- originalRecallSepaMessage match {
+                      case Some(creditTransferMesage) =>
+                        SepaTransactionMessage.getBySepaCreditTransferTransactionIdAndSepaMessageId(
+                          transaction._1.id, creditTransferMesage.id)
+                      case None => Future.failed(new Exception(s"Original sepa recall message linked with sepaCreditTransferTransactionId ${transaction._1.id} not found"))
+                    }
+                    recallTransactionRequestId = transactionRecallMessageLink.flatMap(_.obpTransactionRequestId).orNull
+                    accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.debtorAccount.orNull)
+                    transactionRequestChallengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, recallTransactionRequestId)
+                    recallRejectReasoninformation = transaction._1.customFields.flatMap(json =>
+                      (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString)
+                        .headOption.flatMap(_.asArray).flatMap(_.headOption))
+                    transactionRequestChallengeAnswer = TransactionRequestChallengeAnswer(
+                      id = transactionRequestChallengeId,
+                      answer = "REJECT",
+                      reason_code = recallRejectReasoninformation.flatMap(j =>
+                        (j \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_REASON_CODE.toString)
+                          .headOption.flatMap(_.asString)),
+                      additional_information = recallRejectReasoninformation.flatMap(j =>
+                        (j \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_ADDITIONAL_INFORMATION.toString)
+                          .headOption.flatMap(_.asString))
+                    )
+                    _ <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, recallTransactionRequestId, transactionRequestChallengeAnswer)
+                    _ <- transaction._1.updateMessageLink(paymentRecallNegativeAnswerMessage.message.id, transaction._2, Some(recallTransactionRequestId), None)
+                  } yield ()
+                }
+                )))
+                _ <- paymentRecallNegativeAnswerMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+                _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+              } yield ()
+          }
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
 
     case _ => sys.error(s"Message received but not implemented yet")
 
@@ -339,8 +422,8 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
       ).asJson,
       // TODO : Try to include the originalObpTransactionId + reasonCode in the return description like in OBP
       description = s"TRANSACTION RETURNED. Original description : ${transaction.description.getOrElse("")}",
-      posted = LocalDateTime.now.format(HistoricalTransactionJson.jsonDateTimeFormatter),
-      completed = LocalDateTime.now.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+      posted = LocalDateTime.now(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
+      completed = LocalDateTime.now(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
       `type` = "REFUND",
       charge_policy = "SHARED"
     )

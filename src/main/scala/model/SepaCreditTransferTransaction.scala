@@ -103,6 +103,7 @@ object SepaCreditTransferTransaction {
     )
   }
 
+  // TODO : transform the Future[Option[SepaCreditTransferTransaction]] to Future[SepaCreditTransferTransaction] and same in all the model
   def getById(id: UUID): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.id === id).result.headOption)
 
   def getByTransactionIdInSepaFile(transactionIdInSepaFile: String): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.transactionIdInSepaFile === transactionIdInSepaFile).result.headOption)

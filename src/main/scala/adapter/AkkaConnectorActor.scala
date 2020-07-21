@@ -1,6 +1,6 @@
 package adapter
 
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{LocalDate, LocalDateTime, ZoneId, ZoneOffset}
 import java.util.{Date, UUID}
 
 import adapter.obpApiModel.{CounterpartyAccountReference, CustomerAccountReference, HistoricalTransactionJson, ObpApi}
@@ -11,13 +11,14 @@ import com.openbankproject.commons.model._
 import com.openbankproject.commons.model.enums.TransactionRequestStatus
 import io.circe.generic.auto._
 import io.circe.syntax._
+import model.enums.sepaReasonCodes.PaymentRecallNegativeAnswerReasonCode.{apply => _, values => _, withName => _, _}
 import model.enums.sepaReasonCodes.PaymentRecallReasonCode._
-import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
-import model.enums.{SepaCreditTransferTransactionStatus, SepaMessageStatus, SepaMessageType}
+import model.enums.sepaReasonCodes.{PaymentRecallNegativeAnswerReasonCode, PaymentReturnReasonCode}
+import model.enums.{SepaCreditTransferTransactionStatus, SepaFileType, SepaMessageStatus, SepaMessageType}
 import model.types.Bic
-import model.{SepaCreditTransferTransaction, SepaMessage}
-import sepa.{PaymentRecallMessage, PaymentReturnMessage, SepaUtil}
+import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
+import sepa.{PaymentRecallMessage, PaymentRecallNegativeAnswerMessage, PaymentReturnMessage, SepaUtil}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -88,8 +89,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               amount = creditTransferTransaction.amount.toString
             ).asJson,
             description = creditTransferTransaction.description.getOrElse(""),
-            posted = creditTransferTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
-            completed = creditTransferTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+            posted = creditTransferTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
+            completed = creditTransferTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
             `type` = transactionRequestType.value,
             charge_policy = chargePolicy
           )
@@ -176,8 +177,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                       amount = originalTransaction.amount.toString
                     ).asJson,
                     description = description,
-                    posted = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                    completed = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                    posted = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                    completed = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
                     `type` = transactionRequestType.value,
                     charge_policy = chargePolicy
                   )
@@ -214,8 +215,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                       amount = originalTransaction.amount.toString
                     ).asJson,
                     description = description,
-                    posted = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                    completed = originalTransaction.creationDateTime.format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                    posted = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
+                    completed = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
                     `type` = transactionRequestType.value,
                     charge_policy = chargePolicy
                   )
@@ -242,7 +243,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
       }
 
     case OutBoundNotifyTransactionRequest(callContext, fromAccount, toAccount, transactionRequest) =>
-      println("Notify transaction request received")
+      println(s"Notify transaction request received : ${transactionRequest.id}")
       println(transactionRequest)
 
       val obpAkkaConnector = sender
@@ -250,60 +251,109 @@ class AkkaConnectorActor extends Actor with ActorLogging {
       // We are doing something here only when we need to send a message that don't create a transaction
       // Example : Recall request, Recall rejection
       // A recall is when an App account want to recover sended funds
-      val maybePaymentRecallReasonCode = Try(withName(transactionRequest.body.description.split(" - ").last.split(":").last.trim)).toOption
+      val newTransactionRequestStatus = (transactionRequest.`type`, TransactionRequestStatus.withName(transactionRequest.status)) match {
+        case ("REFUND", TransactionRequestStatus.INITIATED) =>
+          val maybePaymentRecallReasonCode = Try(withName(transactionRequest.body.description.split(" - ").last.split(":").last.trim)).toOption
+          maybePaymentRecallReasonCode match {
+            case Some(paymentRecallReasonCode) =>
+              val originalObpTransactionId = TransactionId(transactionRequest.body.description.split(" - ").reverse(1).split(Array('(', ')'))(1))
+              val originalSepaCreditTransferTransaction = SepaCreditTransferTransaction.getByObpTransactionId(originalObpTransactionId)
+              originalSepaCreditTransferTransaction.flatMap {
+                case Some(originalTransaction) =>
+                  val transactionRequestValid = (for {
+                    fromAccountIban <- fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
+                    toAccountIban <- toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
+                    originalTransactionDebtorIban <- originalTransaction.debtorAccount
+                    originalTransactionCreditorIban <- originalTransaction.creditorAccount
+                  } yield fromAccountIban == originalTransactionCreditorIban && toAccountIban == originalTransactionDebtorIban).getOrElse(false)
 
-      val newTransactionRequestStatus: Future[TransactionRequestStatus.Value] = (transactionRequest.`type`, maybePaymentRecallReasonCode) match {
-        case ("REFUND", Some(paymentRecallReasonCode)) =>
-          val originalObpTransactionId = TransactionId(transactionRequest.body.description.split(" - ").reverse(1).split(Array('(', ')'))(1))
-          val originalSepaCreditTransferTransaction = SepaCreditTransferTransaction.getByObpTransactionId(originalObpTransactionId)
-          originalSepaCreditTransferTransaction.flatMap {
-            case Some(originalTransaction) =>
-              val transactionRequestValid = (for {
-                fromAccountIban <- fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
-                toAccountIban <- toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
-                originalTransactionDebtorIban <- originalTransaction.debtorAccount
-                originalTransactionCreditorIban <- originalTransaction.creditorAccount
-              } yield fromAccountIban == originalTransactionCreditorIban && toAccountIban == originalTransactionDebtorIban).getOrElse(false)
+                  if (transactionRequestValid) {
+                    // TODO : We can use the sepa file direction to detect which account to request to the API
+                    val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
+                    val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
+                    val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
+                    val accountTo = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, toAccountIban)
 
-              if (transactionRequestValid) {
-                // TODO : We can use the sepa file direction to detect which account to request to the API
-                val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
-                val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
-                val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
-                val accountTo = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, toAccountIban)
-
-                accountFrom.map(_ => { // Case where the counterparty want to be refund by the account (RECALL Request Receipt)
-                  // In this case, the transactionRequest is coming from the SEPA Adapter, so no need to save anything
-                  // We just set the TransactionRequestStatus to NEXT_CHALLENGE_PENDING to say the app that it need to complete
-                  // (Accept or Reject) the created challenge.
-                  TransactionRequestStatus.NEXT_CHALLENGE_PENDING
-                }).fallbackTo(accountTo.flatMap(_ => { // Case where the account want to be refund by the counterparty (RECALL Request Sending)
-                  // In this case, the transactionRequest is coming from the OBP API (APP), so no need to send the recall message
-                  // We then set the TransactionRequestStatus to FORWARDED to indicate that we're waiting for a response from the counterparty bank
-                  val originator = paymentRecallReasonCode match {
-                    case FRAUDULENT_ORIGIN | TECHNICAL_PROBLEM | DUPLICATE_PAYMENT =>
-                      originalTransaction.debtorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic)
-                    case REQUESTED_BY_CUSTOMER | WRONG_AMOUNT | INVALID_CREDITOR_ACCOUNT_NUMBER =>
-                      originalTransaction.debtorName.getOrElse(Adapter.BANK_BIC.bic)
+                    accountFrom.map(_ => { // Case where the counterparty want to be refund by the account (RECALL Request Receipt)
+                      // In this case, the transactionRequest is coming from the SEPA Adapter, so no need to save anything
+                      // We just set the TransactionRequestStatus to NEXT_CHALLENGE_PENDING to say the app that it need to complete
+                      // (Accept or Reject) the created challenge.
+                      TransactionRequestStatus.NEXT_CHALLENGE_PENDING
+                    }).fallbackTo(accountTo.flatMap(_ => { // Case where the account want to be refund by the counterparty (RECALL Request Sending)
+                      // In this case, the transactionRequest is coming from the OBP API (APP), so no need to send the recall message
+                      // We then set the TransactionRequestStatus to FORWARDED to indicate that we're waiting for a response from the counterparty bank
+                      val originator = paymentRecallReasonCode match {
+                        case FRAUDULENT_ORIGIN | TECHNICAL_PROBLEM | DUPLICATE_PAYMENT =>
+                          originalTransaction.debtorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic)
+                        case REQUESTED_BY_CUSTOMER | WRONG_AMOUNT | INVALID_CREDITOR_ACCOUNT_NUMBER =>
+                          originalTransaction.debtorName.getOrElse(Adapter.BANK_BIC.bic)
+                      }
+                      val additionalInformation = transactionRequest.body.description.split(" - ").reverse.drop(2).reverse.mkString(" - ")
+                      for {
+                        _ <- PaymentRecallMessage.recallTransaction(originalTransaction, originator, paymentRecallReasonCode, Some(additionalInformation),
+                          Some(transactionRequest.id))
+                      } yield TransactionRequestStatus.FORWARDED
+                    }
+                    ))
+                  } else {
+                    log.error(s"Transaction request invalid, counterparty_iban don't match with the original SEPA transaction ${originalTransaction.id} (OBP original transaction : ${originalObpTransactionId.value}). Maybe the errror is coming from the to/from field name")
+                    Future.successful(TransactionRequestStatus.FAILED)
                   }
-                  val additionalInformation = transactionRequest.body.description.split(" - ").reverse.drop(2).reverse.mkString(" - ")
-                  for {
-                    _ <- PaymentRecallMessage.recallTransaction(originalTransaction, originator, paymentRecallReasonCode, Some(additionalInformation),
-                      Some(transactionRequest.id))
-                  } yield TransactionRequestStatus.FORWARDED
-                }
-                ))
-              } else {
-                log.error(s"Transaction request invalid, counterparty_iban don't match with the original SEPA transaction ${originalTransaction.id} (OBP original transaction : ${originalObpTransactionId.value}). Maybe the errror is coming from the to/from field name")
-                Future.successful(TransactionRequestStatus.FAILED)
+                case None =>
+                  log.error(s"Original credit transfer transaction with obpTransactionId (${originalObpTransactionId.value}) not found in SEPA Adapter")
+                  Future.successful(TransactionRequestStatus.FAILED)
               }
-            case None =>
-              log.error(s"Original credit transfer transaction with obpTransactionId (${originalObpTransactionId.value}) not found in SEPA Adapter")
-              Future.successful(TransactionRequestStatus.FAILED)
+            case _ => Future.successful(TransactionRequestStatus.INITIATED)
           }
 
-        case _ => Future.successful(TransactionRequestStatus.INITIATED)
+        case ("REFUND", TransactionRequestStatus.REJECTED) =>
+          val paymentRecallNegativeAnswerReasonCode: PaymentRecallNegativeAnswerReasonCode =
+            PaymentRecallNegativeAnswerReasonCode.withName(transactionRequest.body.description
+              .split(" - Refund reject reason code : ").last.split(" ").head)
+          val paymentRecallNegativeAnswerAditionalInformation = transactionRequest.body.description
+            .split(" - Refund reject additional information : ").lastOption
+          (for {
+            originalCreditTransferTransaction <- SepaCreditTransferTransaction.getByObpTransactionRequestId(transactionRequest.id)
+            originalRecallMessage <- originalCreditTransferTransaction match {
+              case Some(creditTransferTransaction) =>
+                SepaMessage.getBySepaCreditTransferTransactionId(creditTransferTransaction.id).map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL))
+              case None => Future.failed(new Exception(s"originalCreditTransferTransaction with TransactionRequestId(${transactionRequest.id}) not found"))
+            }
+            originalRecallMessageFile <- originalRecallMessage match {
+              case Some(recallMessage) =>
+                recallMessage.sepaFileId match {
+                  case Some(fileId) => SepaFile.getById(fileId)
+                  case None => Future.failed(new Exception(s"originalRecallMessage ${recallMessage.id} is not linked to a SepaFileId"))
+                }
+              case None => Future.failed(new Exception(s"originalRecallMessage linked with with SepaCreditTransferTransactionId(${originalCreditTransferTransaction.map(_.id)}) not found"))
+            }
+            newTransactionRequestStatus <- originalRecallMessageFile match {
+              case Some(recallSepaFile) => recallSepaFile.fileType match {
+                case SepaFileType.SCT_IN =>
+                  for {
+                    _ <- PaymentRecallNegativeAnswerMessage.sendRecallNegativeAnswer(
+                      originalCreditTransferTransaction.get,
+                      Seq(PaymentRecallNegativeAnswerMessage.ReasonInformation(
+                        originator = paymentRecallNegativeAnswerReasonCode match {
+                          case CUSTOMER_DECISION => originalCreditTransferTransaction.get.creditorName
+                            .orElse(originalCreditTransferTransaction.get.creditorAgent.map(_.bic))
+                            .getOrElse(Adapter.BANK_BIC.bic)
+                          case _ => originalCreditTransferTransaction.get.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic)
+                        },
+                        reasonCode = paymentRecallNegativeAnswerReasonCode,
+                        additionalInformation = paymentRecallNegativeAnswerAditionalInformation
+                      )),
+                      Some(transactionRequest.id)
+                    )
+                  } yield TransactionRequestStatus.REJECTED
 
+                case SepaFileType.SCT_OUT => Future.successful(TransactionRequestStatus.REJECTED)
+              }
+              case None => Future.failed(new Exception(s"originalRecallMessageFile linked with recall message ${originalRecallMessageFile.map(_.id)} not found"))
+            }
+          } yield newTransactionRequestStatus)
+
+        case _ => Future.successful(TransactionRequestStatus.withName(transactionRequest.status))
       }
       newTransactionRequestStatus.map(status => {
         val result = InBoundNotifyTransactionRequest(InboundAdapterCallContext(
@@ -312,7 +362,9 @@ class AkkaConnectorActor extends Actor with ActorLogging {
           callContext.generalContext
         ), successInBoundStatus, status)
         obpAkkaConnector ! result
-      })
+      }).recover {
+        case exception: Exception => log.error(exception.getMessage)
+      }
 
     case _ => println(s"Message received but not implemented")
   }

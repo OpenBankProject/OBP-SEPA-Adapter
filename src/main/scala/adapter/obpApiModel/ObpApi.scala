@@ -108,14 +108,14 @@ object ObpApi {
     }
   }
 
-  def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId, transactionRequestChallengeAnswer: TransactionRequestChallengeAnswer)(implicit context: ActorContext): Future[TransactionId] = {
+  def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId, transactionRequestChallengeAnswer: TransactionRequestChallengeAnswer)(implicit context: ActorContext): Future[Option[TransactionId]] = {
     val body = transactionRequestChallengeAnswer.asJson.toString()
     val callResult = callObpApi(s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests/${transactionRequestId.value}/challenge", HttpMethods.POST, body)
     callResult.map(println)
     callResult.flatMap {
-      case jsonResult if (jsonResult \\ "transaction_ids").headOption.flatMap(_.asArray).flatMap(_.headOption).flatMap(_.asString).isDefined =>
-        Future.successful(TransactionId((jsonResult \\ "transaction_ids").headOption
-          .flatMap(_.asArray).flatMap(_.headOption).flatMap(_.asString).get))
+      case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
+        Future.successful((jsonResult \\ "transaction_ids").headOption
+          .flatMap(_.asArray).flatMap(_.headOption).flatMap(_.asString).map(TransactionId(_)))
       case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
         val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
         val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)

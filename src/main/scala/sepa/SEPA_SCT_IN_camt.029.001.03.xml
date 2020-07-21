@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.056.001.01">
-    <FIToFIPmtCxlReq>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.029.001.03">
+    <RsltnOfInvstgtn>
         <Assgnmt>
-            <Id>hrtzhtrhtrehtrehtr7847tr4h7r8</Id>
+            <Id>5e2ddc727764432faf864947fb653c5c</Id>
             <Assgnr>
                 <Agt>
                     <FinInstnId>
@@ -17,63 +17,64 @@
                     </FinInstnId>
                 </Agt>
             </Assgne>
-            <CreDtTm>2020-07-21T14:12:28.727+02:00</CreDtTm>
+            <CreDtTm>2020-07-21T18:26:22.336+02:00</CreDtTm>
         </Assgnmt>
-        <CtrlData>
-            <NbOfTxs>1</NbOfTxs>
-        </CtrlData>
-        <Undrlyg>
-            <TxInf>
-                <CxlId>7gdf8gf7ds9g8fdsbfd1sb6fds16</CxlId>
+        <Sts>
+            <Conf>RJCR</Conf>
+        </Sts>
+        <CxlDtls>
+            <TxInfAndSts>
+                <CxlStsId>ezofkozfzezez2ffezfe485e6zf8fezf</CxlStsId>
                 <OrgnlGrpInf>
-                    <OrgnlMsgId>ae8za7e8zar56df4d5sg4ds5g6f7h8</OrgnlMsgId>
+                    <OrgnlMsgId>9f34554498c540a7a9d7f87185110df1</OrgnlMsgId>
                     <OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
                 </OrgnlGrpInf>
-                <OrgnlEndToEndId>nkuykuu9yk4u8y9rk7u9r8</OrgnlEndToEndId>
-                <OrgnlTxId>aa9aa99az8z8r78ezr79e988456fsd</OrgnlTxId>
-                <OrgnlIntrBkSttlmAmt Ccy="EUR">12</OrgnlIntrBkSttlmAmt>
-                <OrgnlIntrBkSttlmDt>2020-07-21</OrgnlIntrBkSttlmDt>
-                <CxlRsnInf>
+                <OrgnlEndToEndId>377ce83b5b4d4ebba7508533d0703c97</OrgnlEndToEndId>
+                <OrgnlTxId>377ce83b5b4d4ebba7508533d0703c97</OrgnlTxId>
+                <TxCxlSts>RJCR</TxCxlSts>
+                <CxlStsRsnInf>
                     <Orgtr>
                         <Nm>Louis Dupont</Nm>
                     </Orgtr>
                     <Rsn>
-                        <Prtry>AC03</Prtry>
+                        <Cd>CUST</Cd>
                     </Rsn>
-                    <AddtlInf>Oups, bad account</AddtlInf>
-                </CxlRsnInf>
+                    <AddtlInf>No, I don't want to send you back this money, that's your mistake</AddtlInf>
+                </CxlStsRsnInf>
                 <OrgnlTxRef>
+                    <IntrBkSttlmAmt Ccy="EUR">20</IntrBkSttlmAmt>
+                    <IntrBkSttlmDt>2020-07-22</IntrBkSttlmDt>
                     <RmtInf>
-                        <Ustrd>A transaction message for example</Ustrd>
+                        <Ustrd>description</Ustrd>
                     </RmtInf>
                     <Dbtr>
-                        <Nm>Louis Dupont</Nm>
+                        <Nm>guillaume</Nm>
                     </Dbtr>
                     <DbtrAcct>
                         <Id>
-                            <IBAN>DE89370400440532013002</IBAN>
+                            <IBAN>DE65500105176582659391</IBAN>
                         </Id>
                     </DbtrAcct>
                     <DbtrAgt>
                         <FinInstnId>
-                            <BIC>NTSBDEB1XXX</BIC>
+                            <BIC>OBPBDEB1XXX</BIC>
                         </FinInstnId>
                     </DbtrAgt>
                     <CdtrAgt>
                         <FinInstnId>
-                            <BIC>OBPBDEB1XXX</BIC>
+                            <BIC>NTSBDEB1XXX</BIC>
                         </FinInstnId>
                     </CdtrAgt>
                     <Cdtr>
-                        <Nm>guillaume</Nm>
+                        <Nm>Louis Dupont</Nm>
                     </Cdtr>
                     <CdtrAcct>
                         <Id>
-                            <IBAN>DE65500105176582659391</IBAN>
+                            <IBAN>DE89370400440532013002</IBAN>
                         </Id>
                     </CdtrAcct>
                 </OrgnlTxRef>
-            </TxInf>
-        </Undrlyg>
-    </FIToFIPmtCxlReq>
+            </TxInfAndSts>
+        </CxlDtls>
+    </RsltnOfInvstgtn>
 </Document>

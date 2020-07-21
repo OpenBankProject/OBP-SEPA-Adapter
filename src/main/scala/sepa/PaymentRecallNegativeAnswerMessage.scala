@@ -76,7 +76,7 @@ case class PaymentRecallNegativeAnswerMessage(
                       case NO_ORIGINAL_TRANSACTION_RECEIVED => Some(CancellationStatusReason1Choice(DataRecord(<Prtry></Prtry>, NO_ORIGINAL_TRANSACTION_RECEIVED.toString)))
                     },
                     AddtlInf = {
-                      val additionalInformation = (reasonInformationJson \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_REASON_CODE.toString).headOption.flatMap(_.asString).getOrElse("")
+                      val additionalInformation = (reasonInformationJson \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_ADDITIONAL_INFORMATION.toString).headOption.flatMap(_.asString).getOrElse("")
                       additionalInformation match {
                         case _ if additionalInformation.isEmpty => Nil
                         case _ if additionalInformation.splitAt(105)._2.isEmpty => Seq(additionalInformation)
@@ -157,7 +157,7 @@ object PaymentRecallNegativeAnswerMessage {
             settlementDate = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             instructionId = xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
-            status = SepaCreditTransferTransactionStatus.RECALL_REFUSED,
+            status = SepaCreditTransferTransactionStatus.RECALL_REJECT,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString,
                 Json.fromValues(xmlTransaction.CxlStsRsnInf.map(reasonInformation =>
@@ -189,7 +189,7 @@ object PaymentRecallNegativeAnswerMessage {
 
   def sendRecallNegativeAnswer(sepaCreditTransferTransaction: SepaCreditTransferTransaction, reasonsInformation: Seq[ReasonInformation], obpTransactionRequestId: Option[TransactionRequestId] = None): Future[Unit] = {
     for {
-      originalRecallSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(sepaCreditTransferTransaction.id).map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL))
+      originalSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(sepaCreditTransferTransaction.id).map(_.find(_.messageType == SepaMessageType.B2B_CREDIT_TRANSFER))
       recallNegativeAnswerSepaMessage <- {
         val sepaMessageId = UUID.randomUUID()
         val message = SepaMessage(
@@ -205,7 +205,7 @@ object PaymentRecallNegativeAnswerMessage {
         } yield message
       }
       _ <- sepaCreditTransferTransaction.copy(
-        status = SepaCreditTransferTransactionStatus.TO_RECALL_REFUSED,
+        status = SepaCreditTransferTransactionStatus.TO_RECALL_REJECT,
         customFields = Some(sepaCreditTransferTransaction.customFields.getOrElse(Json.fromJsonObject(JsonObject.empty))
           .deepMerge(Json.fromJsonObject(JsonObject.empty
             .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString,
@@ -221,9 +221,9 @@ object PaymentRecallNegativeAnswerMessage {
               ))
             )
             .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
-              Json.fromString(originalRecallSepaMessage.map(_.messageIdInSepaFile).getOrElse("")))
+              Json.fromString(originalSepaMessage.map(_.messageIdInSepaFile).getOrElse("")))
             .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_ORIGINAL_MESSAGE_TYPE.toString,
-              Json.fromString(originalRecallSepaMessage.map(_.messageType.toString).getOrElse(""))))))
+              Json.fromString(originalSepaMessage.map(_.messageType.toString).getOrElse(""))))))
       ).update()
       transactionStatusIdInSepaFile = SepaUtil.removeDashesToUUID(UUID.randomUUID())
       _ <- sepaCreditTransferTransaction.linkMessage(recallNegativeAnswerSepaMessage.id, transactionStatusIdInSepaFile, obpTransactionRequestId, None)
@@ -231,4 +231,5 @@ object PaymentRecallNegativeAnswerMessage {
   }
 
   case class ReasonInformation(originator: String, reasonCode: PaymentRecallNegativeAnswerReasonCode, additionalInformation: Option[String])
+
 }

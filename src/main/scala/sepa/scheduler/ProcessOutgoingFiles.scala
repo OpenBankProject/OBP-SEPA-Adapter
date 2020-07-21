@@ -7,7 +7,7 @@ import java.util.UUID
 import model.enums.SepaMessageType.{SepaMessageType, _}
 import model.enums._
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
-import sepa.{CreditTransferMessage, PaymentRecallMessage, PaymentRecallNegativeAnswerMessage, PaymentReturnMessage, SctMessage}
+import sepa._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -38,7 +38,7 @@ object ProcessOutgoingFiles extends App {
           case B2B_CREDIT_TRANSFER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFERED, settlementDate = Some(settlementDate))
           case B2B_PAYMENT_RETURN => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RETURNED)
           case B2B_PAYMENT_RECALL => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALLED)
-          case B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALL_REFUSED)
+          case B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALL_REJECT)
         }).update()))
       _ <- sctMessage.message.copy(sepaFileId = Some(outgoingFile.id), status = SepaMessageStatus.PROCESSED).update()
       _ <- outgoingFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
