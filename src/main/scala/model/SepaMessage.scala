@@ -12,6 +12,7 @@ import model.types.Bic
 import slick.dbio.DBIOAction
 import slick.jdbc.PostgresProfile.api._
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 case class SepaMessage(
@@ -34,9 +35,17 @@ case class SepaMessage(
 }
 
 object SepaMessage {
-  def getById(id: UUID): Future[Option[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(_.id === id).result.headOption)
+  def getById(id: UUID): Future[SepaMessage] =
+    Schema.db.run(Schema.sepaMessages.filter(_.id === id).result.headOption).flatMap {
+      case Some(sepaMessage) => Future.successful(sepaMessage)
+      case None => Future.failed(new Exception(s"None SepaMessage found with the id $id"))
+    }
 
-  def getByMessageIdInSepaFile(messageIdInSepaFile: String): Future[Option[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(_.messageIdInSepaFile === messageIdInSepaFile).result.headOption)
+  def getByMessageIdInSepaFile(messageIdInSepaFile: String): Future[SepaMessage] =
+    Schema.db.run(Schema.sepaMessages.filter(_.messageIdInSepaFile === messageIdInSepaFile).result.headOption).flatMap {
+      case Some(sepaMessage) => Future.successful(sepaMessage)
+      case None => Future.failed(new Exception(s"None SepaMessage found with the messageIdInSepaFile $messageIdInSepaFile"))
+    }
 
   def getUnprocessed: Future[Seq[SepaMessage]] = Schema.db.run(Schema.sepaMessages.filter(_.status === SepaMessageStatus.UNPROCESSED).result)
 

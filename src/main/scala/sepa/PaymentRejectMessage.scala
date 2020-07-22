@@ -11,12 +11,14 @@ import model.{SepaCreditTransferTransaction, SepaMessage}
 import sepa.sct.generated.paymentReject._
 
 import scala.util.Try
-import scala.xml.Elem
+import scala.xml.{Elem, NodeSeq}
 
 case class PaymentRejectMessage(
                                  message: SepaMessage,
                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                               )
+                               ) extends SctMessage {
+  override def toXML: NodeSeq = ???
+}
 
 object PaymentRejectMessage {
   def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[PaymentRejectMessage] = {

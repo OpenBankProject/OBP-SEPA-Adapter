@@ -5,7 +5,7 @@ import java.util.UUID
 
 import com.openbankproject.commons.model.{Iban, TransactionId, TransactionRequestId}
 import io.circe.Json
-import model.Schema.{obpTransactionIdColumnType, obpTransactionRequestIdColumnType, sepaCreditTransferTransactionStatusColumnType}
+import model.Schema.{obpTransactionIdColumnType, obpTransactionRequestIdColumnType}
 import model.enums.SepaCreditTransferTransactionStatus
 import model.enums.SepaCreditTransferTransactionStatus.SepaCreditTransferTransactionStatus
 import model.types.Bic
@@ -15,6 +15,7 @@ import sepa.sct.generated.creditTransfer.`package`.defaultScope
 import slick.dbio.DBIOAction
 import slick.jdbc.PostgresProfile.api._
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.xml.NodeSeq
 
@@ -103,12 +104,19 @@ object SepaCreditTransferTransaction {
     )
   }
 
-  // TODO : transform the Future[Option[SepaCreditTransferTransaction]] to Future[SepaCreditTransferTransaction] and same in all the model
-  def getById(id: UUID): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.id === id).result.headOption)
+  def getById(id: UUID): Future[SepaCreditTransferTransaction] =
+    Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.id === id).result.headOption).flatMap {
+      case Some(sepaCreditTransferTransaction) => Future.successful(sepaCreditTransferTransaction)
+      case None => Future.failed(new Exception(s"None SepaCreditTransferTransaction found with the id $id"))
+    }
 
-  def getByTransactionIdInSepaFile(transactionIdInSepaFile: String): Future[Option[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.transactionIdInSepaFile === transactionIdInSepaFile).result.headOption)
+  def getByTransactionIdInSepaFile(transactionIdInSepaFile: String): Future[SepaCreditTransferTransaction] =
+    Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.transactionIdInSepaFile === transactionIdInSepaFile).result.headOption).flatMap {
+      case Some(sepaCreditTransferTransaction) => Future.successful(sepaCreditTransferTransaction)
+      case None => Future.failed(new Exception(s"None SepaCreditTransferTransaction found with the transactionIdInSepaFile $transactionIdInSepaFile"))
+    }
 
-  def getByTransactionStatusIdInSepaFile(transactionStatusIdInSepaFile: String): Future[Option[SepaCreditTransferTransaction]] =
+  def getByTransactionStatusIdInSepaFile(transactionStatusIdInSepaFile: String): Future[SepaCreditTransferTransaction] =
     Schema.db.run(
       Schema.sepaTransactionMessages
         .filter(_.transactionStatusIdInSepaFile === transactionStatusIdInSepaFile)
@@ -116,9 +124,12 @@ object SepaCreditTransferTransaction {
         .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
         .map(_._2)
         .result.headOption
-    )
+    ).flatMap {
+      case Some(sepaCreditTransferTransaction) => Future.successful(sepaCreditTransferTransaction)
+      case None => Future.failed(new Exception(s"None SepaCreditTransferTransaction found with the transactionStatusIdInSepaFile $transactionStatusIdInSepaFile"))
+    }
 
-  def getByObpTransactionId(obpTransactionId: TransactionId): Future[Option[SepaCreditTransferTransaction]] =
+  def getByObpTransactionId(obpTransactionId: TransactionId): Future[SepaCreditTransferTransaction] =
     Schema.db.run(
       Schema.sepaTransactionMessages
         .filter(_.obpTransactionId === obpTransactionId)
@@ -126,9 +137,12 @@ object SepaCreditTransferTransaction {
         .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
         .map(_._2)
         .result.headOption
-    )
+    ).flatMap {
+      case Some(sepaCreditTransferTransaction) => Future.successful(sepaCreditTransferTransaction)
+      case None => Future.failed(new Exception(s"None SepaCreditTransferTransaction found with the obpTransactionId $obpTransactionId"))
+    }
 
-  def getByObpTransactionRequestId(obpTransactionRequestId: TransactionRequestId): Future[Option[SepaCreditTransferTransaction]] =
+  def getByObpTransactionRequestId(obpTransactionRequestId: TransactionRequestId): Future[SepaCreditTransferTransaction] =
     Schema.db.run(
       Schema.sepaTransactionMessages
         .filter(_.obpTransactionRequestId === obpTransactionRequestId)
@@ -136,9 +150,10 @@ object SepaCreditTransferTransaction {
         .on((transactionMessage, transaction) => transactionMessage.sepaCreditTransferTransactionId === transaction.id)
         .map(_._2)
         .result.headOption
-    )
-
-  def getUnprocessed: Future[Seq[SepaCreditTransferTransaction]] = Schema.db.run(Schema.sepaCreditTransferTransactions.filter(_.status === SepaCreditTransferTransactionStatus.UNPROCESSED).result)
+    ).flatMap {
+      case Some(sepaCreditTransferTransaction) => Future.successful(sepaCreditTransferTransaction)
+      case None => Future.failed(new Exception(s"None SepaCreditTransferTransaction found with the obpTransactionRequestId $obpTransactionRequestId"))
+    }
 
   def getBySepaMessageId(messageId: UUID): Future[Seq[(SepaCreditTransferTransaction, String)]] =
     Schema.db.run(

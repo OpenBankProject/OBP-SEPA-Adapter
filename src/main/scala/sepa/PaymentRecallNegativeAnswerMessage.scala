@@ -157,7 +157,7 @@ object PaymentRecallNegativeAnswerMessage {
             settlementDate = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             instructionId = xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
-            status = SepaCreditTransferTransactionStatus.RECALL_REJECT,
+            status = SepaCreditTransferTransactionStatus.RECALL_REJECTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString,
                 Json.fromValues(xmlTransaction.CxlStsRsnInf.map(reasonInformation =>

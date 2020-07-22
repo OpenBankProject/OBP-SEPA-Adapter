@@ -9,6 +9,7 @@ import model.enums.SepaFileType.SepaFileType
 import slick.dbio.DBIOAction
 import slick.jdbc.PostgresProfile.api._
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 case class SepaFile(
@@ -26,5 +27,9 @@ case class SepaFile(
 }
 
 object SepaFile {
-  def getById(id: UUID): Future[Option[SepaFile]] = Schema.db.run(Schema.sepaFiles.filter(_.id === id).result.headOption)
+  def getById(id: UUID): Future[SepaFile] =
+    Schema.db.run(Schema.sepaFiles.filter(_.id === id).result.headOption).flatMap {
+      case Some(sepaFile) => Future.successful(sepaFile)
+      case None => Future.failed(new Exception(s"None SepaFile found with the id $id"))
+    }
 }

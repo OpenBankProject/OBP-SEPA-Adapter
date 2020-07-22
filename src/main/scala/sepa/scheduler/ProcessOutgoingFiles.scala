@@ -38,7 +38,7 @@ object ProcessOutgoingFiles extends App {
           case B2B_CREDIT_TRANSFER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFERED, settlementDate = Some(settlementDate))
           case B2B_PAYMENT_RETURN => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RETURNED)
           case B2B_PAYMENT_RECALL => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALLED)
-          case B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALL_REJECT)
+          case B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => transaction._1.copy(status = SepaCreditTransferTransactionStatus.RECALL_REJECTED)
         }).update()))
       _ <- sctMessage.message.copy(sepaFileId = Some(outgoingFile.id), status = SepaMessageStatus.PROCESSED).update()
       _ <- outgoingFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
