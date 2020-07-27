@@ -305,6 +305,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
   }
 
   def preProcessSctMessageTransactions(sctMessage: SctMessage): Future[Seq[(SepaCreditTransferTransaction, String)]] = {
+    // TODO : add a cheching on messageType duplication for a transaction : If it's the case : reject the message
     for {
       _ <- checkMessageIdInSepaFileNotExist(sctMessage.message.messageIdInSepaFile)
       _ <- sctMessage.message.insert()

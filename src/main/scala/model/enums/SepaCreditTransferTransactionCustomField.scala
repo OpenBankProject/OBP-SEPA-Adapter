@@ -25,4 +25,9 @@ object SepaCreditTransferTransactionCustomField extends Enumeration {
   val PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_REASON_CODE = Value("paymentRecallNegativeAnswerReasonCodeInformationReasonCode")
   val PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_ADDITIONAL_INFORMATION = Value("paymentRecallNegativeAnswerReasonCodeInformationAdditionalInformation")
 
+  val INQUIRY_CLAIM_NON_RECEIPT_CASE_ID = Value("inquiryClaimNonReceiptCaseId")
+  val INQUIRY_CLAIM_NON_RECEIPT_CASE_CREATOR = Value("inquiryClaimNonReceiptCaseCreator")
+  val INQUIRY_CLAIM_NON_RECEIPT_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE = Value("inquiryClaimNonReceiptOriginalMessageIdInSepaFile")
+  val INQUIRY_CLAIM_NON_RECEIPT_ORIGINAL_MESSAGE_TYPE = Value("inquiryClaimNonReceiptOriginalMessageType")
+  val INQUIRY_CLAIM_NON_RECEIPT_ADDITIONAL_INFORMATION = Value("inquiryClaimNonReceiptAdditionalInformation")
 }

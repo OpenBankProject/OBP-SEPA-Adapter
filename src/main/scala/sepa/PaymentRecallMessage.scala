@@ -34,8 +34,8 @@ case class PaymentRecallMessage(
             case assigner => Party7Choice(DataRecord(<Pty></Pty>, PartyIdentification32(Nm = Some(assigner))))
           },
           Assgne = message.instigatedAgent.map(_.bic).getOrElse("") match {
-            case assigner if SepaUtil.isBic(assigner) => Party7Choice(DataRecord(<Agt></Agt>, BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(assigner)))))
-            case assigner => Party7Choice(DataRecord(<Pty></Pty>, PartyIdentification32(Nm = Some(assigner))))
+            case assignee if SepaUtil.isBic(assignee) => Party7Choice(DataRecord(<Agt></Agt>, BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(assignee)))))
+            case assignee => Party7Choice(DataRecord(<Pty></Pty>, PartyIdentification32(Nm = Some(assignee))))
           },
           CreDtTm = DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar.from(message.creationDateTime.atZone(ZoneId.of("Europe/Paris"))))
         ),
@@ -126,8 +126,8 @@ object PaymentRecallMessage {
             case assigner: PartyIdentification32able => assigner.Nm.map(Bic)
           },
           instigatedAgent = document.FIToFIPmtCxlReq.Assgnmt.Assgne.party7choicableoption.value match {
-            case assigner: BranchAndFinancialInstitutionIdentification4 => assigner.FinInstnId.BIC.map(Bic)
-            case assigner: PartyIdentification32able => assigner.Nm.map(Bic)
+            case assignee: BranchAndFinancialInstitutionIdentification4 => assignee.FinInstnId.BIC.map(Bic)
+            case assignee: PartyIdentification32able => assignee.Nm.map(Bic)
           },
           customFields = None
         ),
@@ -146,7 +146,8 @@ object PaymentRecallMessage {
             creationDateTime = LocalDateTime.now(),
             settlementDate = xmlTransaction.OrgnlIntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
-            instructionId = xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
+            instructionId = xmlTransaction.OrgnlInstrId,
+            endToEndId = xmlTransaction.OrgnlEndToEndId.getOrElse(""),
             status = SepaCreditTransferTransactionStatus.RECALLED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINATOR.toString,
