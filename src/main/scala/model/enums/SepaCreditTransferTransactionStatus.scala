@@ -27,4 +27,5 @@ object SepaCreditTransferTransactionStatus extends Enumeration {
   val RECALL_ERROR: enums.SepaCreditTransferTransactionStatus.Value = Value
 
   val CLAIMED_NON_RECEIPT: enums.SepaCreditTransferTransactionStatus.Value = Value
+  val CLAIMED_VALUE_DATE_CORRECTION: enums.SepaCreditTransferTransactionStatus.Value = Value
 }
