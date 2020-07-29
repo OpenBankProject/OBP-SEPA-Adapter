@@ -37,4 +37,7 @@ object SepaCreditTransferTransactionCustomField extends Enumeration {
   val INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ORIGINAL_MESSAGE_TYPE = Value("inquiryClaimValueDateCorrectionOriginalMessageType")
   val INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEW_SETTLEMENT_DATE = Value("inquiryClaimValueDateCorrectionNewSettlementDate")
   val INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ADDITIONAL_INFORMATION = Value("inquiryClaimValueDateCorrectionAdditionalInformation")
+
+  val REQUEST_STATUS_UPDATE_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE = Value("requestStatusUpdateOriginalMessageIdInSepaFile")
+  val REQUEST_STATUS_UPDATE_ORIGINAL_MESSAGE_TYPE = Value("requestStatusUpdateOriginalMessageType")
 }
