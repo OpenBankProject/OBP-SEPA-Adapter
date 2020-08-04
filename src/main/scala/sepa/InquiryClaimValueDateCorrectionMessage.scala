@@ -15,7 +15,7 @@ import sepa.sct.generated.inquiryClaimValueDateCorrection._
 import scala.util.Try
 import scala.xml.{Elem, NodeSeq}
 
-case class InquiryClaimValueDateCorrection(
+case class InquiryClaimValueDateCorrectionMessage(
                                             message: SepaMessage,
                                             creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
                                           ) extends SctMessage {
@@ -120,7 +120,7 @@ case class InquiryClaimValueDateCorrection(
   }
 }
 
-object InquiryClaimValueDateCorrection {
+object InquiryClaimValueDateCorrectionMessage {
   def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[InquiryClaimNonReceiptMessage] = {
     Try(scalaxb.fromXML[Document](xmlFile)).map(document =>
       InquiryClaimNonReceiptMessage(

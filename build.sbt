@@ -21,7 +21,7 @@ libraryDependencies ++= Seq(
 /*
 lazy val root = (project in file("."))
   .enablePlugins(ScalaxbPlugin)
-  .settings(scalaxbPackageName in(Compile, scalaxb) := "sepa.sct.generated.requestStatusUpdate")
+  .settings(scalaxbPackageName in(Compile, scalaxb) := "sepa.sct.generated.inquiryClaimValueDateCorrectionNegativeAnswer")
 */
 
 lazy val akkaVersion = "2.5.19"
