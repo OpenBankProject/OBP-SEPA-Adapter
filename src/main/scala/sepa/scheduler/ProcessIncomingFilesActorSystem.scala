@@ -51,7 +51,10 @@ object ProcessIncomingFilesActorSystem extends App {
       case SepaMessageType.B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => processIncomingFileActor ! ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP =>
       case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION =>
-      case SepaMessageType.B2B_INQUIRY_RESPONSE =>
+      case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP_POSITIVE_RESPONSE =>
+      case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPONSE =>
+      case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE =>
+      case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEGATIVE_RESPONSE =>
       case SepaMessageType.B2B_REQUEST_STATUS_UPDATE =>
       case _ => sys.error(s"Message received and can't be parsed, file path : ${file.getAbsolutePath}")
     }

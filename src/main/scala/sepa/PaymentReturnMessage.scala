@@ -23,6 +23,7 @@ case class PaymentReturnMessage(
                                  message: SepaMessage,
                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
                                ) extends SctMessage {
+  // TODO : include potential charges in this message
   def toXML: NodeSeq = {
     val document = Document(
       PaymentReturnV02(

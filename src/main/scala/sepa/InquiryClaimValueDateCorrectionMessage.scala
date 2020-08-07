@@ -121,9 +121,9 @@ case class InquiryClaimValueDateCorrectionMessage(
 }
 
 object InquiryClaimValueDateCorrectionMessage {
-  def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[InquiryClaimNonReceiptMessage] = {
+  def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[InquiryClaimValueDateCorrectionMessage] = {
     Try(scalaxb.fromXML[Document](xmlFile)).map(document =>
-      InquiryClaimNonReceiptMessage(
+      InquiryClaimValueDateCorrectionMessage(
         SepaMessage(
           id = UUID.randomUUID(),
           creationDateTime = document.ReqToModfyPmt.Assgnmt.CreDtTm.toGregorianCalendar.toZonedDateTime.toLocalDateTime,
@@ -155,6 +155,8 @@ object InquiryClaimValueDateCorrectionMessage {
               Json.fromString(document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlGrpInf.map(_.OrgnlMsgId).getOrElse("")))
             .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ORIGINAL_MESSAGE_TYPE.toString,
               Json.fromString(document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlGrpInf.map(_.OrgnlMsgNmId).getOrElse("")))
+            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEW_SETTLEMENT_DATE.toString,
+              Json.fromString(document.ReqToModfyPmt.Mod.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate.toString).getOrElse("")))
           ))
         ),
         creditTransferTransactions = Seq(
@@ -198,6 +200,8 @@ object InquiryClaimValueDateCorrectionMessage {
                 Json.fromString(document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlGrpInf.map(_.OrgnlMsgId).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ORIGINAL_MESSAGE_TYPE.toString,
                 Json.fromString(document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlGrpInf.map(_.OrgnlMsgNmId).getOrElse("")))
+              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEW_SETTLEMENT_DATE.toString,
+                Json.fromString(document.ReqToModfyPmt.Mod.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate.toString).getOrElse("")))
             ))
           ), document.ReqToModfyPmt.Case.map(_.Id).getOrElse("")))
       )
