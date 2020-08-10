@@ -1,6 +1,6 @@
 package sepa
 
-import java.time.{LocalDate, LocalDateTime, ZoneId}
+import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
 
 import com.openbankproject.commons.model.Iban
@@ -10,12 +10,12 @@ import model.enums._
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
-import sepa.sct.generated.inquiryClaimValueDateCorrectionPositiveAnswer._
+import sepa.sct.generated.inquiryClaimValueDateCorrectionNegativeAnswer._
 
 import scala.util.Try
 import scala.xml.{Elem, NodeSeq}
 
-case class InquiryClaimValueDateCorrectionPositiveAnswerMessage(
+case class InquiryClaimValueDateCorrectionNegativeAnswerMessage(
                                                                  message: SepaMessage,
                                                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
                                                                ) extends SctMessage {
@@ -93,69 +93,6 @@ case class InquiryClaimValueDateCorrectionPositiveAnswerMessage(
             CdtrAgt = creditTransferTransactions.head._1.creditorAgent.map(creditorAgent => BranchAndFinancialInstitutionIdentification5(FinInstnId = FinancialInstitutionIdentification8(BICFI = Some(creditorAgent.bic)))),
             Purp = creditTransferTransactions.head._1.purposeCode.map(purposeCode => Purpose2Choice(DataRecord(<Cd></Cd>, purposeCode)))
           ))
-        )),
-        RsltnRltdInf = Some(ResolutionInformation2(
-          IntrBkSttlmDt = creditTransferTransactions.head._1.customFields.flatMap(json =>
-            (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_NEW_SETTLEMENT_DATE.toString).headOption.flatMap(_.asString)
-              .flatMap(dateString => Try {
-                val date = LocalDate.parse(dateString)
-                val newSettlementDate = DatatypeFactory.newInstance().newXMLGregorianCalendar
-                newSettlementDate.setYear(date.getYear)
-                newSettlementDate.setMonth(date.getMonthValue)
-                newSettlementDate.setDay(date.getDayOfMonth)
-                newSettlementDate
-              }.toOption))
-            .orElse(message.customFields.flatMap(json =>
-              (json \\ SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_NEW_SETTLEMENT_DATE.toString).headOption.flatMap(_.asString).flatMap(dateString => Try {
-                val date = LocalDate.parse(dateString)
-                val newSettlementDate = DatatypeFactory.newInstance().newXMLGregorianCalendar
-                newSettlementDate.setYear(date.getYear)
-                newSettlementDate.setMonth(date.getMonthValue)
-                newSettlementDate.setDay(date.getDayOfMonth)
-                newSettlementDate
-              }.toOption))
-            ),
-          Compstn = creditTransferTransactions.head._1.customFields.flatMap(json =>
-            (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_AMOUNT.toString).headOption.flatMap(_.asString))
-            .orElse(message.customFields.flatMap(json =>
-              (json \\ SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_AMOUNT.toString).headOption.flatMap(_.asString)))
-            .flatMap(compensationAmountString => Try(BigDecimal(compensationAmountString)).toOption)
-            .map(compensationAmount => Compensation1(
-              Amt = ActiveCurrencyAndAmount(value = compensationAmount, Map(("@Ccy", DataRecord("EUR")))),
-              DbtrAgt = BranchAndFinancialInstitutionIdentification5(FinancialInstitutionIdentification8(BICFI =
-                creditTransferTransactions.head._1.customFields.flatMap(json =>
-                  (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_DEBTOR_AGENT.toString).headOption.flatMap(_.asString))
-                  .orElse(message.customFields.flatMap(json =>
-                    (json \\ SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_DEBTOR_AGENT.toString).headOption.flatMap(_.asString)))
-              )),
-              CdtrAgt = BranchAndFinancialInstitutionIdentification5(FinancialInstitutionIdentification8(BICFI =
-                creditTransferTransactions.head._1.customFields.flatMap(json =>
-                  (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_CREDITOR_AGENT.toString).headOption.flatMap(_.asString))
-                  .orElse(message.customFields.flatMap(json =>
-                    (json \\ SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_CREDITOR_AGENT.toString).headOption.flatMap(_.asString)))
-              )),
-              Rsn = CompensationReason1Choice(DataRecord(<Cd></Cd>,
-                creditTransferTransactions.head._1.customFields.flatMap(json =>
-                  (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_REASON_CODE.toString).headOption.flatMap(_.asString))
-                  .orElse(message.customFields.flatMap(json =>
-                    (json \\ SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_REASON_CODE.toString).headOption.flatMap(_.asString)))
-                  .getOrElse("")
-              ))
-            )),
-          Chrgs = creditTransferTransactions.head._1.customFields.flatMap(json =>
-            (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AMOUNT.toString).headOption.flatMap(_.asString))
-            .orElse(message.customFields.flatMap(json =>
-              (json \\ SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AMOUNT.toString).headOption.flatMap(_.asString)))
-            .flatMap(chargesAmountString => Try(BigDecimal(chargesAmountString)).toOption)
-            .map(chargesAmount => Charges2(
-              Amt = ActiveOrHistoricCurrencyAndAmount(value = chargesAmount, Map(("@Ccy", DataRecord("EUR")))),
-              Agt = BranchAndFinancialInstitutionIdentification5(FinancialInstitutionIdentification8(BICFI =
-                creditTransferTransactions.head._1.customFields.flatMap(json =>
-                  (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AGENT.toString).headOption.flatMap(_.asString))
-                  .orElse(message.customFields.flatMap(json =>
-                    (json \\ SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AGENT.toString).headOption.flatMap(_.asString)))
-              ))
-            )).toSeq
         ))
       )
     )
@@ -164,14 +101,14 @@ case class InquiryClaimValueDateCorrectionPositiveAnswerMessage(
 }
 
 
-object InquiryClaimValueDateCorrectionPositiveAnswerMessage {
-  def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[InquiryClaimValueDateCorrectionPositiveAnswerMessage] = {
+object InquiryClaimValueDateCorrectionNegativeAnswerMessage {
+  def fromXML(xmlFile: Elem, sepaFileId: UUID): Try[InquiryClaimValueDateCorrectionNegativeAnswerMessage] = {
     Try(scalaxb.fromXML[Document](xmlFile)).map(document =>
-      InquiryClaimValueDateCorrectionPositiveAnswerMessage(
+      InquiryClaimValueDateCorrectionNegativeAnswerMessage(
         SepaMessage(
           id = UUID.randomUUID(),
           creationDateTime = document.RsltnOfInvstgtn.Assgnmt.CreDtTm.toGregorianCalendar.toZonedDateTime.toLocalDateTime,
-          messageType = SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE,
+          messageType = SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEGATIVE_RESPONSE,
           status = SepaMessageStatus.PROCESSING_IN_PROGRESS,
           sepaFileId = Some(sepaFileId),
           messageIdInSepaFile = document.RsltnOfInvstgtn.Assgnmt.Id,
@@ -201,21 +138,6 @@ object InquiryClaimValueDateCorrectionPositiveAnswerMessage {
               Json.fromString(document.RsltnOfInvstgtn.ModDtls.map(_.OrgnlGrpInf.OrgnlMsgId).getOrElse("")))
             .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_RESPONSE_ORIGINAL_MESSAGE_TYPE.toString,
               Json.fromString(document.RsltnOfInvstgtn.ModDtls.map(_.OrgnlGrpInf.OrgnlMsgNmId).getOrElse("")))
-            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_NEW_SETTLEMENT_DATE.toString,
-              Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf
-                .flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate.toString)).getOrElse("")))
-            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_AMOUNT.toString,
-              Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.map(_.Amt.value.toString)).getOrElse("")))
-            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_DEBTOR_AGENT.toString,
-              Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.flatMap(_.DbtrAgt.FinInstnId.BICFI)).getOrElse("")))
-            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_CREDITOR_AGENT.toString,
-              Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.flatMap(_.CdtrAgt.FinInstnId.BICFI)).getOrElse("")))
-            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_REASON_CODE.toString,
-              Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.map(_.Rsn.compensationreason1choiceoption.value)).getOrElse("")))
-            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AMOUNT.toString,
-              Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Chrgs.headOption.map(_.Amt.value.toString)).getOrElse("")))
-            .add(SepaMessageCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AGENT.toString,
-              Json.fromString(document.RsltnOfInvstgtn.ModDtls.map(_.OrgnlGrpInf.OrgnlMsgNmId).getOrElse("")))
           ))
         ),
         creditTransferTransactions = Seq(
@@ -244,7 +166,7 @@ object InquiryClaimValueDateCorrectionPositiveAnswerMessage {
             transactionIdInSepaFile = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxId).getOrElse(""),
             instructionId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlInstrId),
             endToEndId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlEndToEndId).getOrElse(""),
-            status = SepaCreditTransferTransactionStatus.CLAIM_VALUE_DATE_CORRECTION_ACCEPTED,
+            status = SepaCreditTransferTransactionStatus.CLAIM_VALUE_DATE_CORRECTION_REJECTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_RESPONSE_CASE_ID.toString,
                 Json.fromString(document.RsltnOfInvstgtn.RslvdCase.map(_.Id).getOrElse("")))
@@ -259,21 +181,6 @@ object InquiryClaimValueDateCorrectionPositiveAnswerMessage {
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_RESPONSE_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
                 Json.fromString(document.RsltnOfInvstgtn.ModDtls.map(_.OrgnlGrpInf.OrgnlMsgId).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_RESPONSE_ORIGINAL_MESSAGE_TYPE.toString,
-                Json.fromString(document.RsltnOfInvstgtn.ModDtls.map(_.OrgnlGrpInf.OrgnlMsgNmId).getOrElse("")))
-              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_NEW_SETTLEMENT_DATE.toString,
-                Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf
-                  .flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate.toString)).getOrElse("")))
-              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_AMOUNT.toString,
-                Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.map(_.Amt.value.toString)).getOrElse("")))
-              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_DEBTOR_AGENT.toString,
-                Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.flatMap(_.DbtrAgt.FinInstnId.BICFI)).getOrElse("")))
-              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_CREDITOR_AGENT.toString,
-                Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.flatMap(_.CdtrAgt.FinInstnId.BICFI)).getOrElse("")))
-              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_COMPENSATION_REASON_CODE.toString,
-                Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Compstn.map(_.Rsn.compensationreason1choiceoption.value)).getOrElse("")))
-              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AMOUNT.toString,
-                Json.fromString(document.RsltnOfInvstgtn.RsltnRltdInf.flatMap(_.Chrgs.headOption.map(_.Amt.value.toString)).getOrElse("")))
-              .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_ACCEPTED_CHARGES_AGENT.toString,
                 Json.fromString(document.RsltnOfInvstgtn.ModDtls.map(_.OrgnlGrpInf.OrgnlMsgNmId).getOrElse("")))
             ))
           ), document.RsltnOfInvstgtn.RslvdCase.map(_.Id).getOrElse("")))
