@@ -13,7 +13,8 @@ import io.circe.{Json, JsonObject}
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage, SepaTransactionMessage}
-import sepa._
+import sepa.sct.message._
+import sepa.sct.message.SctMessage
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future

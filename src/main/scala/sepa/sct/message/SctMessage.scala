@@ -1,4 +1,4 @@
-package sepa
+package sepa.sct.message
 
 import model.{SepaCreditTransferTransaction, SepaMessage}
 

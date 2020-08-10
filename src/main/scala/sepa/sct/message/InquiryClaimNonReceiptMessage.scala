@@ -1,4 +1,4 @@
-package sepa
+package sepa.sct.message
 
 import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
@@ -10,6 +10,7 @@ import model.enums._
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
+import sepa.SepaUtil
 import sepa.sct.generated.inquiryClaimNonReceipt._
 
 import scala.util.Try

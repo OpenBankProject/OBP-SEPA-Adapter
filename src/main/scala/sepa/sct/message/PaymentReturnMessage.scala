@@ -1,4 +1,4 @@
-package sepa
+package sepa.sct.message
 
 import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
@@ -11,6 +11,7 @@ import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCo
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
+import sepa.SepaUtil
 import sepa.sct.generated.paymentReturn
 import sepa.sct.generated.paymentReturn._
 
@@ -69,7 +70,16 @@ case class PaymentReturnMessage(
             RtrdIntrBkSttlmAmt = ActiveCurrencyAndAmount(transaction._1.amount, Map(("@Ccy", DataRecord("EUR")))),
             RtrdInstdAmt = None,
             ChrgBr = Some(SLEV),
-            ChrgsInf = Nil,
+            ChrgsInf = transaction._1.customFields.flatMap(json =>
+              (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_CHARGES_AMOUNT.toString).headOption.flatMap(_.asString))
+              .flatMap(chargesAmountString => Try(BigDecimal(chargesAmountString)).toOption)
+              .map(chargesAmount => ChargesInformation5(
+                Amt = ActiveOrHistoricCurrencyAndAmount(value = chargesAmount, Map(("@Ccy", DataRecord("EUR")))),
+                Pty = BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(BIC =
+                  transaction._1.customFields.flatMap(json =>
+                    (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_CHARGES_PARTY.toString).headOption.flatMap(_.asString))
+                ))
+              )).toSeq,
             InstgAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
             InstdAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
             RtrRsnInf = Seq(ReturnReasonInformation9(
@@ -155,6 +165,10 @@ object PaymentReturnMessage {
                     case ordId: OrganisationIdentification4 => ordId.BICOrBEI
                   })))).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_REASON_CODE.toString,
+                Json.fromString(xmlTransaction.RtrRsnInf.headOption.flatMap(_.Rsn.map(_.returnreason5choicableoption.value)).getOrElse("")))
+              .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_CHARGES_AMOUNT.toString,
+                Json.fromString(xmlTransaction.ChrgsInf.headOption.map(_.Amt.value.toString).getOrElse("")))
+              .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_CHARGES_PARTY.toString,
                 Json.fromString(xmlTransaction.RtrRsnInf.headOption.flatMap(_.Rsn.map(_.returnreason5choicableoption.value)).getOrElse("")))
             ))
           )

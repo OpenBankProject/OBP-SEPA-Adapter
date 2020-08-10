@@ -7,6 +7,8 @@ object SepaCreditTransferTransactionCustomField extends Enumeration {
   val PAYMENT_RETURN_REASON_CODE = Value("paymentReturnReasonCode")
   val PAYMENT_RETURN_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE = Value("paymentReturnOriginalMessageIdInSepaFile")
   val PAYMENT_RETURN_ORIGINAL_MESSAGE_TYPE = Value("paymentReturnOriginalMessageType")
+  val PAYMENT_RETURN_CHARGES_AMOUNT = Value("paymentReturnChargesAmount")
+  val PAYMENT_RETURN_CHARGES_PARTY = Value("paymentReturnChargesParty")
 
   val PAYMENT_REJECT_ORIGINATOR = Value("paymentRejectOriginator")
   val PAYMENT_REJECT_REASON_CODE = Value("paymentRejectReasonCode")

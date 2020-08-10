@@ -1,4 +1,4 @@
-package sepa
+package sepa.sct.message
 
 import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
@@ -13,6 +13,7 @@ import model.enums.sepaReasonCodes.PaymentRecallReasonCode._
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
+import sepa.SepaUtil
 import sepa.sct.generated.paymentRecall._
 
 import scala.concurrent.ExecutionContext.Implicits.global

@@ -18,7 +18,8 @@ import model.enums.sepaReasonCodes.{PaymentRecallNegativeAnswerReasonCode, Payme
 import model.enums.{SepaCreditTransferTransactionStatus, SepaFileType, SepaMessageStatus, SepaMessageType}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
-import sepa.{PaymentRecallMessage, PaymentRecallNegativeAnswerMessage, PaymentReturnMessage, SepaUtil}
+import sepa.sct.message._
+import sepa.SepaUtil
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future

@@ -8,6 +8,7 @@ import model.enums.SepaMessageType.{SepaMessageType, _}
 import model.enums._
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
 import sepa._
+import sepa.sct.message.{CreditTransferMessage, PaymentRecallMessage, PaymentRecallNegativeAnswerMessage, PaymentReturnMessage, SctMessage}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
