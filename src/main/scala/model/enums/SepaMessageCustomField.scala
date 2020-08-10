@@ -24,11 +24,11 @@ object SepaMessageCustomField extends Enumeration {
   val INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_MODIFICATION_STATUS_ID = Value("inquiryClaimNonReceiptResponseModificationStatusId")
   val INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE = Value("inquiryClaimNonReceiptResponseOriginalMessageIdInSepaFile")
   val INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_ORIGINAL_MESSAGE_TYPE = Value("inquiryClaimNonReceiptResponseOriginalMessageType")
-  val INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_DATE_PROCESSED = Value("inquiryClaimNonReceiptResponseDateProcessed")
-  val INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_ORIGINAL_NEXT_AGENT = Value("inquiryClaimNonReceiptResponseOriginalNextAgent")
-  val INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_CHARGES_AMOUNT = Value("inquiryClaimNonReceiptResponseChargeAmount")
-  val INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_CHARGES_AGENT = Value("inquiryClaimNonReceiptResponseChargeAgent")
-
+  val INQUIRY_CLAIM_NON_RECEIPT_ACCEPTED_DATE_PROCESSED = Value("inquiryClaimNonReceiptAcceptedDateProcessed")
+  val INQUIRY_CLAIM_NON_RECEIPT_ACCEPTED_ORIGINAL_NEXT_AGENT = Value("inquiryClaimNonReceiptAcceptedOriginalNextAgent")
+  val INQUIRY_CLAIM_NON_RECEIPT_ACCEPTED_CHARGES_AMOUNT = Value("inquiryClaimNonReceiptAcceptedChargesAmount")
+  val INQUIRY_CLAIM_NON_RECEIPT_ACCEPTED_CHARGES_AGENT = Value("inquiryClaimNonReceiptAcceptedChargesAgent")
+  val INQUIRY_CLAIM_NON_RECEIPT_REJECTED_REASON_CODE = Value("inquiryClaimNonReceiptRejectedReasonCode")
 
   val INQUIRY_CLAIM_VALUE_DATE_CORRECTION_CASE_ID = Value("inquiryClaimValueDateCorrectionCaseId")
   val INQUIRY_CLAIM_VALUE_DATE_CORRECTION_CASE_CREATOR = Value("inquiryClaimValueDateCorrectionCaseCreator")
