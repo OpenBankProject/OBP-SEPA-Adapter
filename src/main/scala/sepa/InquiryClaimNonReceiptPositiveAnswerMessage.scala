@@ -130,7 +130,7 @@ case class InquiryClaimNonReceiptPositiveAnswerMessage(
           (json \\ SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_NON_RECEIPT_ACCEPTED_CHARGES_AMOUNT.toString).headOption.flatMap(_.asString))
           .orElse(message.customFields.flatMap(json =>
             (json \\ SepaMessageCustomField.INQUIRY_CLAIM_NON_RECEIPT_ACCEPTED_CHARGES_AMOUNT.toString).headOption.flatMap(_.asString)))
-          .map(chargesAmountString => BigDecimal(chargesAmountString))
+          .flatMap(chargesAmountString => Try(BigDecimal(chargesAmountString)).toOption)
           .map(chargesAmount => ResolutionInformation2(Chrgs = Seq(Charges2(
             Amt = ActiveOrHistoricCurrencyAndAmount(value = chargesAmount, Map(("@Ccy", DataRecord("EUR")))),
             Agt = BranchAndFinancialInstitutionIdentification5(FinancialInstitutionIdentification8(BICFI =
