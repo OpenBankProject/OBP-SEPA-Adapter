@@ -26,6 +26,7 @@ case class SepaCreditTransferTransaction(
                                           debtorAccount: Option[Iban],
                                           debtorAgent: Option[Bic],
                                           creditorName: Option[String],
+                                          // TODO : Add fields Creditor / Debtor Address, Identification (find a way to make the difference between individual / company)
                                           creditorAccount: Option[Iban],
                                           creditorAgent: Option[Bic],
                                           purposeCode: Option[String],
@@ -37,6 +38,7 @@ case class SepaCreditTransferTransaction(
                                           endToEndId: String,
                                           status: SepaCreditTransferTransactionStatus,
                                           customFields: Option[Json]
+                                          // TODO : Add missing fields : Settlement information, payment information, ultimate creditor, ultimate debtor
                                         ) {
   def insert(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions += this))
 

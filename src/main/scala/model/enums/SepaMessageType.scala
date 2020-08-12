@@ -1,5 +1,7 @@
 package model.enums
 
+import model.enums
+
 
 object SepaMessageType extends Enumeration {
   type SepaMessageType = Value
@@ -18,6 +20,7 @@ object SepaMessageType extends Enumeration {
   val B2B_INQUIRY_CLAIM_NON_RECEIP: SepaMessageType.Value = Value("camt.027.001.06")
   val B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION: SepaMessageType.Value = Value("camt.087.001.05")
 
+  val B2B_INQUIRY_RESPONSE: enums.SepaMessageType.Value = Value("camt.029.001.08") // This type must not be stored in database, must be used only to match on "camt.029.001.08"
   val B2B_INQUIRY_CLAIM_NON_RECEIP_POSITIVE_RESPONSE: SepaMessageType.Value = Value("camt.029.001.08:CLAIM_NON_RECEIP_POSITIVE_RESPONSE")
   val B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPONSE: SepaMessageType.Value = Value("camt.029.001.08:CLAIM_NON_RECEIP_NEGATIVE_RESPONSE")
   val B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE: SepaMessageType.Value = Value("camt.029.001.08:CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE")

@@ -8,10 +8,12 @@ import java.util.UUID
 import akka.actor.{ActorSystem, Props}
 import com.typesafe.config.ConfigFactory
 import model.SepaFile
+import model.enums.sepaReasonCodes.{ClaimNonReceiptResponseStatusCode, ClaimValueDateCorrectionResponseStatusCode}
 import model.enums.{SepaFileStatus, SepaFileType, SepaMessageType}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.Try
 import scala.xml.XML
 
 object ProcessIncomingFilesActorSystem extends App {
@@ -49,13 +51,29 @@ object ProcessIncomingFilesActorSystem extends App {
       case SepaMessageType.B2B_PAYMENT_RETURN => processIncomingFileActor ! ProcessIncomingPaymentReturnMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_RECALL => processIncomingFileActor ! ProcessIncomingPaymentRecallMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_RECALL_NEGATIVE_ANSWER => processIncomingFileActor ! ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile, sepaFile)
-      case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP =>
-      case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION =>
-      case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP_POSITIVE_RESPONSE =>
-      case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPONSE =>
-      case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE =>
-      case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEGATIVE_RESPONSE =>
-      case SepaMessageType.B2B_REQUEST_STATUS_UPDATE =>
+      case SepaMessageType.B2B_INQUIRY_CLAIM_NON_RECEIP => processIncomingFileActor ! ProcessIncomingInquiryClaimNonReceiptMessage(xmlFile, sepaFile)
+      case SepaMessageType.B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION => processIncomingFileActor ! ProcessIncomingInquiryClaimValueDateCorrectionMessage(xmlFile, sepaFile)
+      case SepaMessageType.B2B_INQUIRY_RESPONSE =>
+        (xmlFile \\ "Conf").headOption.map(_.text) match {
+          case Some(statusCode) if Try(ClaimNonReceiptResponseStatusCode.withName(statusCode)).isSuccess => {
+            val claimNonReceiptResponseStatusCode = ClaimNonReceiptResponseStatusCode.withName(statusCode)
+            claimNonReceiptResponseStatusCode match {
+              case ClaimNonReceiptResponseStatusCode.ACCEPTED_CLAIM_NON_RECEIPT => processIncomingFileActor ! ProcessIncomingInquiryClaimNonReceiptPositiveAnswerMessage(xmlFile, sepaFile)
+              case ClaimNonReceiptResponseStatusCode.REJECTED_CLAIM_NON_RECEIPT => processIncomingFileActor ! ProcessIncomingInquiryClaimNonReceiptNegativeAnswerMessage(xmlFile, sepaFile)
+            }
+          }
+          case Some(statusCode) if Try(ClaimValueDateCorrectionResponseStatusCode.withName(statusCode)).isSuccess => {
+            val claimValueDateCorrectionResponseStatusCode = ClaimValueDateCorrectionResponseStatusCode.withName(statusCode)
+            claimValueDateCorrectionResponseStatusCode match {
+              case ClaimValueDateCorrectionResponseStatusCode.ACCEPTED_VALUE_DATE_ADJUSTMENT | ClaimValueDateCorrectionResponseStatusCode.MODIFIED_AS_PER_REQUEST =>
+                processIncomingFileActor ! ProcessIncomingInquiryClaimValueDateCorrectionPositiveAnswerMessage(xmlFile, sepaFile)
+              case ClaimValueDateCorrectionResponseStatusCode.CORRECT_VALUE_DATE_ALREADY_APPLIED | ClaimValueDateCorrectionResponseStatusCode.REJECTED_VALUE_DATE_ADJUSTMENT =>
+                processIncomingFileActor ! ProcessIncomingInquiryClaimValueDateCorrectionNegativeAnswerMessage(xmlFile, sepaFile)
+            }
+          }
+          case None => sys.error(s"B2B_INQUIRY_RESPONSE Message received but no status code match, file path : ${file.getAbsolutePath}")
+        }
+      case SepaMessageType.B2B_REQUEST_STATUS_UPDATE => processIncomingFileActor ! ProcessIncomingRequestStatusUpdateMessage(xmlFile, sepaFile)
       case _ => sys.error(s"Message received and can't be parsed, file path : ${file.getAbsolutePath}")
     }
 

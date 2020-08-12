@@ -10,6 +10,7 @@ import com.openbankproject.commons.model.{AmountOfMoney, Iban, TransactionId, Tr
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Json, JsonObject}
+import model.enums.SepaMessageType.{B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPONSE, B2B_INQUIRY_CLAIM_NON_RECEIP_POSITIVE_RESPONSE, B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEGATIVE_RESPONSE, B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE}
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage, SepaTransactionMessage}
@@ -30,6 +31,14 @@ case class ProcessIncomingPaymentRejectMessage(xmlFile: Elem, sepaFile: SepaFile
 case class ProcessIncomingPaymentRecallMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 case class ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+
+case class ProcessIncomingInquiryClaimNonReceiptMessage(xmlFile: Elem, sepaFile: SepaFile)
+case class ProcessIncomingInquiryClaimValueDateCorrectionMessage(xmlFile: Elem, sepaFile: SepaFile)
+case class ProcessIncomingInquiryClaimNonReceiptPositiveAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+case class ProcessIncomingInquiryClaimNonReceiptNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+case class ProcessIncomingInquiryClaimValueDateCorrectionPositiveAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+case class ProcessIncomingInquiryClaimValueDateCorrectionNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+case class ProcessIncomingRequestStatusUpdateMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 class ProcessIncomingFileActor extends Actor with ActorLogging {
 
@@ -265,6 +274,125 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
           } yield log.error(exception.getMessage)
       }
 
+    case ProcessIncomingInquiryClaimNonReceiptMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      InquiryClaimNonReceiptMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(inquiryClaimNonReceiptMessage) =>
+          for {
+            claimNonReceiptTransaction <- preProcessSctMessageTransactions(inquiryClaimNonReceiptMessage).map(_.head)
+            _ <- claimNonReceiptTransaction._1.copy(status = SepaCreditTransferTransactionStatus.CLAIMED_NON_RECEIPT).update()
+            // TODO : Add the logic for the reception of a claim non receipt message
+            _ <- inquiryClaimNonReceiptMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+          } yield ()
+
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
+    case ProcessIncomingInquiryClaimValueDateCorrectionMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      InquiryClaimValueDateCorrectionMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(inquiryClaimValueDateCorrectionMessage) =>
+          for {
+            claimValueDateCorrectionTransaction <- preProcessSctMessageTransactions(inquiryClaimValueDateCorrectionMessage).map(_.head)
+            _ <- claimValueDateCorrectionTransaction._1.copy(status = SepaCreditTransferTransactionStatus.CLAIMED_VALUE_DATE_CORRECTION).update()
+            // TODO : Add the logic for the reception of a claim value date correction message
+            _ <- inquiryClaimValueDateCorrectionMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+          } yield ()
+
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
+    case ProcessIncomingInquiryClaimNonReceiptPositiveAnswerMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      InquiryClaimNonReceiptPositiveAnswerMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(inquiryClaimNonReceiptPositiveAnswerMessage) =>
+          for {
+            claimNonReceiptPositiveAnswerTransaction <- preProcessSctMessageTransactions(inquiryClaimNonReceiptPositiveAnswerMessage).map(_.head)
+            _ <- claimNonReceiptPositiveAnswerTransaction._1.copy(status = SepaCreditTransferTransactionStatus.CLAIM_NON_RECEIPT_ACCEPTED).update()
+            // TODO : Add the logic for the reception of a claim non receipt positive answer message
+            _ <- inquiryClaimNonReceiptPositiveAnswerMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+          } yield ()
+
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
+    case ProcessIncomingInquiryClaimNonReceiptNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      InquiryClaimNonReceiptNegativeAnswerMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(inquiryClaimNonReceiptNegativeAnswerMessage) =>
+          for {
+            claimNonReceiptNegativeAnswerTransaction <- preProcessSctMessageTransactions(inquiryClaimNonReceiptNegativeAnswerMessage).map(_.head)
+            _ <- claimNonReceiptNegativeAnswerTransaction._1.copy(status = SepaCreditTransferTransactionStatus.CLAIM_NON_RECEIPT_REJECTED).update()
+            // TODO : Add the logic for the reception of a claim non receipt negative answer message
+            _ <- inquiryClaimNonReceiptNegativeAnswerMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+          } yield ()
+
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
+    case ProcessIncomingInquiryClaimValueDateCorrectionPositiveAnswerMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      InquiryClaimValueDateCorrectionPositiveAnswerMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(inquiryClaimValueDateCorrectionPositiveAnswerMessage) =>
+          for {
+            claimValueDateCorrectionPositiveAnswerTransaction <- preProcessSctMessageTransactions(inquiryClaimValueDateCorrectionPositiveAnswerMessage).map(_.head)
+            _ <- claimValueDateCorrectionPositiveAnswerTransaction._1.copy(status = SepaCreditTransferTransactionStatus.CLAIM_VALUE_DATE_CORRECTION_ACCEPTED).update()
+            // TODO : Add the logic for the reception of a claim value date correction positive answer message
+            _ <- inquiryClaimValueDateCorrectionPositiveAnswerMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+          } yield ()
+
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
+    case ProcessIncomingInquiryClaimValueDateCorrectionNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      InquiryClaimValueDateCorrectionNegativeAnswerMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(inquiryClaimValueDateCorrectionNegativeAnswerMessage) =>
+          for {
+            claimValueDateCorrectionNegativeAnswerTransaction <- preProcessSctMessageTransactions(inquiryClaimValueDateCorrectionNegativeAnswerMessage).map(_.head)
+            _ <- claimValueDateCorrectionNegativeAnswerTransaction._1.copy(status = SepaCreditTransferTransactionStatus.CLAIM_VALUE_DATE_CORRECTION_REJECTED).update()
+            // TODO : Add the logic for the reception of a claim value date correction negative answer message
+            _ <- inquiryClaimValueDateCorrectionNegativeAnswerMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+          } yield ()
+
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
+    case ProcessIncomingRequestStatusUpdateMessage(xmlFile: Elem, sepaFile: SepaFile) =>
+      RequestStatusUpdateMessage.fromXML(xmlFile, sepaFile.id) match {
+        case Success(requestStatusUpdateMessage) =>
+          for {
+            requestStatusUpdateTransactions <- preProcessSctMessageTransactions(requestStatusUpdateMessage)
+            _ <- Future.sequence(requestStatusUpdateTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.REQUESTED_STATUS_UPDATE).update()))
+            // TODO : Add the logic for the reception of a request status update message
+            _ <- requestStatusUpdateMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+          } yield ()
+
+        case Failure(exception) =>
+          for {
+            _ <- sepaFile.copy(status = SepaFileStatus.PROCESSING_ERROR).update()
+          } yield log.error(exception.getMessage)
+      }
+
 
     case _ => sys.error(s"Message received but not implemented yet")
 
@@ -312,7 +440,12 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
       _ <- sctMessage.message.insert()
       validTransactions <- Future.sequence(sctMessage.creditTransferTransactions.map(receivedTransaction =>
         for {
-          _ <- checkTransactionStatusIdInSepaFileNotExist(receivedTransaction._2)
+          _ <- sctMessage.message.messageType match {
+            case B2B_INQUIRY_CLAIM_NON_RECEIP_POSITIVE_RESPONSE | B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPONSE |
+                 B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE | B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEGATIVE_RESPONSE =>
+              Future.successful()
+            case _ => checkTransactionStatusIdInSepaFileNotExist(receivedTransaction._2)
+          }
           validTransaction <- sctMessage.message.messageType match {
             case SepaMessageType.B2B_CREDIT_TRANSFER => for {
               _ <- receivedTransaction._1.insert()
