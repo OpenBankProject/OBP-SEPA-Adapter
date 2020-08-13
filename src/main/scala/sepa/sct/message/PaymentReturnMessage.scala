@@ -8,6 +8,7 @@ import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
+import model.jsonClasses.Party
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -23,7 +24,7 @@ import scala.xml.{Elem, NodeSeq}
 case class PaymentReturnMessage(
                                  message: SepaMessage,
                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                               ) extends SctMessage {
+                               ) extends SctMessage[Document] {
   // TODO : include potential charges in this message
   def toXML: NodeSeq = {
     val document = Document(
@@ -103,12 +104,14 @@ case class PaymentReturnMessage(
                 })
               },
               RmtInf = transaction._1.description.map(description => RemittanceInformation5(Ustrd = Seq(description))),
-              Dbtr = transaction._1.debtorName.map(name => PartyIdentification32(Nm = Some(name))),
+              Dbtr = transaction._1.debtor.map(_.toPartyIdentification32),
               DbtrAcct = transaction._1.debtorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
               DbtrAgt = transaction._1.debtorAgent.map(debtorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(debtorAgent.bic)))),
-              Cdtr = transaction._1.creditorName.map(name => PartyIdentification32(Nm = Some(name))),
+              UltmtDbtr = transaction._1.ultimateDebtor.map(_.toPartyIdentification32),
+              Cdtr = transaction._1.creditor.map(_.toPartyIdentification32),
               CdtrAcct = transaction._1.creditorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
-              CdtrAgt = transaction._1.creditorAgent.map(creditorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(creditorAgent.bic))))
+              CdtrAgt = transaction._1.creditorAgent.map(creditorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(creditorAgent.bic)))),
+              UltmtCdtr = transaction._1.ultimateCreditor.map(_.toPartyIdentification32)
             ))
           )
         )
@@ -141,12 +144,14 @@ object PaymentReturnMessage {
         creditTransferTransactions = document.PmtRtr.TxInf.map(xmlTransaction => {
           val originalSepaCreditTransferTransaction = SepaCreditTransferTransaction(
             UUID.randomUUID(), xmlTransaction.OrgnlIntrBkSttlmAmt.map(_.value).getOrElse(xmlTransaction.RtrdIntrBkSttlmAmt.value),
-            xmlTransaction.OrgnlTxRef.flatMap(_.Dbtr.flatMap(_.Nm)),
+            debtor = xmlTransaction.OrgnlTxRef.flatMap(_.Dbtr).map(Party.fromPartyIdentification32),
             xmlTransaction.OrgnlTxRef.flatMap(_.DbtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString))),
             xmlTransaction.OrgnlTxRef.flatMap(_.DbtrAgt.flatMap(agent => agent.FinInstnId.BIC.map(Bic))),
-            xmlTransaction.OrgnlTxRef.flatMap(_.Cdtr.flatMap(_.Nm)),
+            ultimateDebtor = xmlTransaction.OrgnlTxRef.flatMap(_.UltmtDbtr).map(Party.fromPartyIdentification32),
+            creditor = xmlTransaction.OrgnlTxRef.flatMap(_.Cdtr).map(Party.fromPartyIdentification32),
             xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString))),
             xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAgt.flatMap(agent => agent.FinInstnId.BIC.map(Bic))),
+            ultimateCreditor = xmlTransaction.OrgnlTxRef.flatMap(_.UltmtCdtr).map(Party.fromPartyIdentification32),
             None,
             xmlTransaction.OrgnlTxRef.flatMap(_.RmtInf.flatMap(_.Ustrd.headOption)),
             creationDateTime = LocalDateTime.now(),

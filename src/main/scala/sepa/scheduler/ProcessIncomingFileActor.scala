@@ -14,8 +14,7 @@ import model.enums.SepaMessageType.{B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPON
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage, SepaTransactionMessage}
-import sepa.sct.message._
-import sepa.sct.message.SctMessage
+import sepa.sct.message.{SctMessage, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -55,7 +54,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                 from = CounterpartyAccountReference(
                   counterparty_iban = transaction._1.debtorAccount.map(_.iban).getOrElse(""),
                   bank_bic = transaction._1.debtorAgent.map(_.bic),
-                  counterparty_name = transaction._1.debtorName
+                  counterparty_name = transaction._1.debtor.flatMap(_.name)
                 ).asJson,
                 to = CustomerAccountReference(
                   account_iban = transaction._1.creditorAccount.map(_.iban).getOrElse(""),
@@ -413,7 +412,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
         from = CounterpartyAccountReference(
           counterparty_iban = transaction.creditorAccount.map(_.iban).getOrElse(""),
           bank_bic = transaction.creditorAgent.map(_.bic),
-          counterparty_name = transaction.creditorName
+          counterparty_name = transaction.creditor.flatMap(_.name)
         ).asJson,
         to = CustomerAccountReference(
           account_iban = transaction.debtorAccount.map(_.iban).getOrElse(""),
@@ -423,7 +422,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
           currency = "EUR",
           amount = transaction.amount.toString
         ).asJson,
-        description = s"Refund for transaction_id: (${originalObpTransactionId.map(_.value).getOrElse("")}) from ${transaction.creditorName.getOrElse("")} - Reason code : ${returnReasonCode.getOrElse("")}",
+        description = s"Refund for transaction_id: (${originalObpTransactionId.map(_.value).getOrElse("")}) from ${transaction.creditor.flatMap(_.name).getOrElse("")} - Reason code : ${returnReasonCode.getOrElse("")}",
         posted = LocalDateTime.now(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
         completed = LocalDateTime.now(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
         `type` = "REFUND",
@@ -433,7 +432,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
     } yield TransactionId(returnedObpTransactionId.toString)
   }
 
-  def preProcessSctMessageTransactions(sctMessage: SctMessage): Future[Seq[(SepaCreditTransferTransaction, String)]] = {
+  def preProcessSctMessageTransactions(sctMessage: SctMessage[_]): Future[Seq[(SepaCreditTransferTransaction, String)]] = {
     // TODO : add a cheching on messageType duplication for a transaction : If it's the case : reject the message
     for {
       _ <- checkMessageIdInSepaFileNotExist(sctMessage.message.messageIdInSepaFile)

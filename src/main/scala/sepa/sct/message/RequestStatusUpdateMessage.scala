@@ -7,6 +7,7 @@ import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
+import model.jsonClasses.Party
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -18,7 +19,7 @@ import scala.xml.{Elem, NodeSeq}
 case class RequestStatusUpdateMessage(
                                        message: SepaMessage,
                                        creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                                     ) extends SctMessage {
+                                     ) extends SctMessage[Document] {
   def toXML: NodeSeq = {
     val document = Document(
       FIToFIPaymentStatusRequestV01(
@@ -55,18 +56,18 @@ case class RequestStatusUpdateMessage(
               PmtTpInf = None,
               RmtInf = transaction._1.description.map(description =>
                 RemittanceInformation11(Ustrd = Seq(description))),
-              Dbtr = transaction._1.debtorName.map(name =>
-                PartyIdentification43(Nm = Some(name))),
+              Dbtr = transaction._1.debtor.map(_.toPartyIdentification43),
               DbtrAcct = transaction._1.debtorAccount.map(account =>
                 CashAccount24(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
               DbtrAgt = transaction._1.debtorAgent.map(debtorAgent =>
                 BranchAndFinancialInstitutionIdentification5(FinInstnId = FinancialInstitutionIdentification8(BICFI = Some(debtorAgent.bic)))),
-              Cdtr = transaction._1.creditorName.map(name =>
-                PartyIdentification43(Nm = Some(name))),
+              UltmtDbtr = transaction._1.ultimateDebtor.map(_.toPartyIdentification43),
+              Cdtr = transaction._1.creditor.map(_.toPartyIdentification43),
               CdtrAcct = transaction._1.creditorAccount.map(account =>
                 CashAccount24(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
               CdtrAgt = transaction._1.creditorAgent.map(creditorAgent =>
-                BranchAndFinancialInstitutionIdentification5(FinInstnId = FinancialInstitutionIdentification8(BICFI = Some(creditorAgent.bic))))
+                BranchAndFinancialInstitutionIdentification5(FinInstnId = FinancialInstitutionIdentification8(BICFI = Some(creditorAgent.bic)))),
+              UltmtCdtr = transaction._1.ultimateCreditor.map(_.toPartyIdentification43)
             ))
           )
         )
@@ -100,12 +101,14 @@ object RequestStatusUpdateMessage {
           val originalSepaCreditTransferTransaction = SepaCreditTransferTransaction(
             id = UUID.randomUUID(),
             amount = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmAmt.map(_.value)).getOrElse(0),
-            debtorName = xmlTransaction.OrgnlTxRef.flatMap(_.Dbtr.flatMap(_.Nm)),
+            debtor = xmlTransaction.OrgnlTxRef.flatMap(_.Dbtr).map(Party.fromPartyIdentification43),
             debtorAccount = xmlTransaction.OrgnlTxRef.flatMap(_.DbtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString))),
             debtorAgent = xmlTransaction.OrgnlTxRef.flatMap(_.DbtrAgt.flatMap(agent => agent.FinInstnId.BICFI.map(Bic))),
-            creditorName = xmlTransaction.OrgnlTxRef.flatMap(_.Cdtr.flatMap(_.Nm)),
+            ultimateDebtor = xmlTransaction.OrgnlTxRef.flatMap(_.UltmtDbtr).map(Party.fromPartyIdentification43),
+            creditor = xmlTransaction.OrgnlTxRef.flatMap(_.Cdtr).map(Party.fromPartyIdentification43),
             creditorAccount = xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString))),
             creditorAgent = xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAgt.flatMap(agent => agent.FinInstnId.BICFI.map(Bic))),
+            ultimateCreditor = xmlTransaction.OrgnlTxRef.flatMap(_.UltmtCdtr).map(Party.fromPartyIdentification43),
             purposeCode = None,
             description = xmlTransaction.OrgnlTxRef.flatMap(_.RmtInf.flatMap(_.Ustrd.headOption)),
             creationDateTime = LocalDateTime.now(),

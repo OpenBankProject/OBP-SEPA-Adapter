@@ -19,7 +19,7 @@ import scala.xml.{Elem, NodeSeq}
 case class InquiryClaimNonReceiptNegativeAnswerMessage(
                                                         message: SepaMessage,
                                                         creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                                                      ) extends SctMessage {
+                                                      ) extends SctMessage[Document] {
   def toXML: NodeSeq = {
     val document = Document(
       ResolutionOfInvestigationV08(
@@ -137,14 +137,16 @@ object InquiryClaimNonReceiptNegativeAnswerMessage {
           (SepaCreditTransferTransaction(
             id = UUID.randomUUID(),
             amount = 0,
-            debtorName = None,
+            debtor = None,
             debtorAccount = None,
             debtorAgent = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(
               _.DbtrAgt.flatMap(_.FinInstnId.BICFI.map(Bic)))),
-            creditorName = None,
+            ultimateDebtor = None,
+            creditor = None,
             creditorAccount = None,
             creditorAgent = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(
               _.CdtrAgt.flatMap(_.FinInstnId.BICFI.map(Bic)))),
+            ultimateCreditor = None,
             purposeCode = None,
             description = None,
             creationDateTime = LocalDateTime.now(),

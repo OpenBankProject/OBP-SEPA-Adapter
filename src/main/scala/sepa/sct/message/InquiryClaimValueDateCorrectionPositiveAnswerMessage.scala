@@ -7,6 +7,7 @@ import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
+import model.jsonClasses.Party
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -19,7 +20,7 @@ import scala.xml.{Elem, NodeSeq}
 case class InquiryClaimValueDateCorrectionPositiveAnswerMessage(
                                                                  message: SepaMessage,
                                                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                                                               ) extends SctMessage {
+                                                               ) extends SctMessage[Document] {
   def toXML: NodeSeq = {
     val document = Document(
       ResolutionOfInvestigationV08(
@@ -86,12 +87,14 @@ case class InquiryClaimValueDateCorrectionPositiveAnswerMessage(
             SttlmInf = None,
             PmtTpInf = None,
             RmtInf = creditTransferTransactions.head._1.description.map(description => RemittanceInformation15(Ustrd = Seq(description))),
-            Dbtr = creditTransferTransactions.head._1.debtorName.map(name => Party35Choice(DataRecord(<Pty></Pty>, PartyIdentification125(Nm = Some(name))))),
+            Dbtr = creditTransferTransactions.head._1.debtor.map(_.toParty35Choice),
             DbtrAcct = creditTransferTransactions.head._1.debtorAccount.map(account => CashAccount24(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
             DbtrAgt = creditTransferTransactions.head._1.debtorAgent.map(debtorAgent => BranchAndFinancialInstitutionIdentification5(FinInstnId = FinancialInstitutionIdentification8(BICFI = Some(debtorAgent.bic)))),
-            Cdtr = creditTransferTransactions.head._1.creditorName.map(name => Party35Choice(DataRecord(<Pty></Pty>, PartyIdentification125(Nm = Some(name))))),
+            UltmtDbtr = creditTransferTransactions.head._1.ultimateDebtor.map(_.toParty35Choice),
+            Cdtr = creditTransferTransactions.head._1.creditor.map(_.toParty35Choice),
             CdtrAcct = creditTransferTransactions.head._1.creditorAccount.map(account => CashAccount24(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
             CdtrAgt = creditTransferTransactions.head._1.creditorAgent.map(creditorAgent => BranchAndFinancialInstitutionIdentification5(FinInstnId = FinancialInstitutionIdentification8(BICFI = Some(creditorAgent.bic)))),
+            UltmtCdtr = creditTransferTransactions.head._1.ultimateCreditor.map(_.toParty35Choice),
             Purp = creditTransferTransactions.head._1.purposeCode.map(purposeCode => Purpose2Choice(DataRecord(<Cd></Cd>, purposeCode)))
           ))
         )),
@@ -223,20 +226,22 @@ object InquiryClaimValueDateCorrectionPositiveAnswerMessage {
           (SepaCreditTransferTransaction(
             id = UUID.randomUUID(),
             amount = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.IntrBkSttlmAmt.map(_.value))).getOrElse(0),
-            debtorName = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.Dbtr.flatMap(_.party35choicableoption.value match {
-              case debtor: PartyIdentification125able => debtor.Nm
-            }))),
+            debtor = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.Dbtr.map(party =>
+              Party.fromParty35Choice(party.party35choicableoption.value)))),
             debtorAccount = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(
               _.DbtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString)))),
             debtorAgent = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(
               _.DbtrAgt.flatMap(_.FinInstnId.BICFI.map(Bic)))),
-            creditorName = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.Cdtr.flatMap(_.party35choicableoption.value match {
-              case creditor: PartyIdentification125able => creditor.Nm
-            }))),
+            ultimateDebtor = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.UltmtDbtr.map(party =>
+              Party.fromParty35Choice(party.party35choicableoption.value)))),
+            creditor = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.Cdtr.map(party =>
+              Party.fromParty35Choice(party.party35choicableoption.value)))),
             creditorAccount = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(
               _.CdtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString)))),
             creditorAgent = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(
               _.CdtrAgt.flatMap(_.FinInstnId.BICFI.map(Bic)))),
+            ultimateCreditor = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.UltmtCdtr.map(party =>
+              Party.fromParty35Choice(party.party35choicableoption.value)))),
             purposeCode = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.Purp.map(_.purpose2choiceoption.value))),
             description = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef.flatMap(_.RmtInf.map(_.Ustrd.mkString))),
             creationDateTime = LocalDateTime.now(),

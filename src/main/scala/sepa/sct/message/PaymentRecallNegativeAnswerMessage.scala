@@ -10,6 +10,7 @@ import javax.xml.datatype.DatatypeFactory
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentRecallNegativeAnswerReasonCode
 import model.enums.sepaReasonCodes.PaymentRecallNegativeAnswerReasonCode.{CLOSED_ACCOUNT_NUMBER, _}
+import model.jsonClasses.Party
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -24,7 +25,7 @@ import scala.xml.{Elem, NodeSeq}
 case class PaymentRecallNegativeAnswerMessage(
                                                message: SepaMessage,
                                                creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
-                                             ) extends SctMessage {
+                                             ) extends SctMessage[Document] {
   def toXML: NodeSeq = {
     val document = Document(
       ResolutionOfInvestigationV03(
@@ -101,12 +102,14 @@ case class PaymentRecallNegativeAnswerMessage(
                 SttlmInf = None,
                 PmtTpInf = None,
                 RmtInf = transaction._1.description.map(description => RemittanceInformation5(Ustrd = Seq(description))),
-                Dbtr = transaction._1.debtorName.map(name => PartyIdentification32(Nm = Some(name))),
+                Dbtr = transaction._1.debtor.map(_.toPartyIdentification32),
                 DbtrAcct = transaction._1.debtorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
                 DbtrAgt = transaction._1.debtorAgent.map(debtorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(debtorAgent.bic)))),
-                Cdtr = transaction._1.creditorName.map(name => PartyIdentification32(Nm = Some(name))),
+                UltmtDbtr = transaction._1.ultimateDebtor.map(_.toPartyIdentification32),
+                Cdtr = transaction._1.creditor.map(_.toPartyIdentification32),
                 CdtrAcct = transaction._1.creditorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
                 CdtrAgt = transaction._1.creditorAgent.map(creditorAgent => BranchAndFinancialInstitutionIdentification4(FinInstnId = FinancialInstitutionIdentification7(BIC = Some(creditorAgent.bic)))),
+                UltmtCdtr = transaction._1.ultimateCreditor.map(_.toPartyIdentification32),
               ))
             ),
           )
@@ -146,12 +149,14 @@ object PaymentRecallNegativeAnswerMessage {
           val originalSepaCreditTransferTransaction = SepaCreditTransferTransaction(
             id = UUID.randomUUID(),
             amount = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmAmt.map(_.value)).getOrElse(0),
-            debtorName = xmlTransaction.OrgnlTxRef.flatMap(_.Dbtr.flatMap(_.Nm)),
+            debtor = xmlTransaction.OrgnlTxRef.flatMap(_.Dbtr).map(Party.fromPartyIdentification32),
             debtorAccount = xmlTransaction.OrgnlTxRef.flatMap(_.DbtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString))),
             debtorAgent = xmlTransaction.OrgnlTxRef.flatMap(_.DbtrAgt.flatMap(agent => agent.FinInstnId.BIC.map(Bic))),
-            creditorName = xmlTransaction.OrgnlTxRef.flatMap(_.Cdtr.flatMap(_.Nm)),
+            ultimateDebtor = xmlTransaction.OrgnlTxRef.flatMap(_.UltmtDbtr).map(Party.fromPartyIdentification32),
+            creditor = xmlTransaction.OrgnlTxRef.flatMap(_.Cdtr).map(Party.fromPartyIdentification32),
             creditorAccount = xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString))),
             creditorAgent = xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAgt.flatMap(agent => agent.FinInstnId.BIC.map(Bic))),
+            ultimateCreditor = xmlTransaction.OrgnlTxRef.flatMap(_.UltmtCdtr).map(Party.fromPartyIdentification32),
             purposeCode = None,
             description = xmlTransaction.OrgnlTxRef.flatMap(_.RmtInf.flatMap(_.Ustrd.headOption)),
             creationDateTime = LocalDateTime.now(),

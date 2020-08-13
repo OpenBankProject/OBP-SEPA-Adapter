@@ -24,7 +24,7 @@ object ProcessOutgoingFiles extends App {
     for {
       updatedMessage <- Future(message.copy(status = SepaMessageStatus.PROCESSING_IN_PROGRESS, settlementDate = Some(settlementDate)))
       _ <- updatedMessage.update()
-      sctMessage: SctMessage <- SepaCreditTransferTransaction.getBySepaMessageId(updatedMessage.id).map(transactions =>
+      sctMessage <- SepaCreditTransferTransaction.getBySepaMessageId(updatedMessage.id).map(transactions =>
         getSctMessageByMessageType(updatedMessage, transactions))
       _ <- Future(XML.save(outgoingFile.path.toString, sctMessage.toXML.head, "UTF-8", xmlDecl = true, null))
       _ <- outgoingFile.insert()
@@ -51,7 +51,7 @@ object ProcessOutgoingFiles extends App {
     )
   }
 
-  def getSctMessageByMessageType(sepaMessage: SepaMessage, sepaCreditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]): SctMessage = {
+  def getSctMessageByMessageType(sepaMessage: SepaMessage, sepaCreditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]): SctMessage[_] = {
     sepaMessage.messageType match {
       case B2B_CREDIT_TRANSFER => CreditTransferMessage(sepaMessage, sepaCreditTransferTransactions)
       case B2B_PAYMENT_RETURN => PaymentReturnMessage(sepaMessage, sepaCreditTransferTransactions)

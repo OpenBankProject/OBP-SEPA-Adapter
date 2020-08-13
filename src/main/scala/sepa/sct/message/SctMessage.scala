@@ -4,11 +4,12 @@ import model.{SepaCreditTransferTransaction, SepaMessage}
 
 import scala.xml.NodeSeq
 
-abstract class SctMessage {
+trait SctMessage[DocumentType] {
 
   val message: SepaMessage
   val creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
 
-  def toXML: NodeSeq
+  implicit val documentType: DocumentType = documentType
 
+  def toXML: NodeSeq
 }

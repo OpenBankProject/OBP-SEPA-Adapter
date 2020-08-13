@@ -16,10 +16,11 @@ import model.enums.sepaReasonCodes.PaymentRecallReasonCode._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
 import model.enums.sepaReasonCodes.{PaymentRecallNegativeAnswerReasonCode, PaymentReturnReasonCode}
 import model.enums.{SepaCreditTransferTransactionStatus, SepaFileType, SepaMessageStatus, SepaMessageType}
+import model.jsonClasses.Party
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
-import sepa.sct.message._
 import sepa.SepaUtil
+import sepa.sct.message._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -58,12 +59,14 @@ class AkkaConnectorActor extends Actor with ActorLogging {
           val creditTransferTransaction = SepaCreditTransferTransaction(
             id = creditTransferTransactionId,
             amount = amount,
-            debtorName = Some(fromAccount.accountHolder),
+            debtor = Some(Party(Some(fromAccount.accountHolder))),
             debtorAccount = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)),
             debtorAgent = Some(Bic(fromAccount.bankId.value)),
-            creditorName = Some(toAccount.accountHolder),
+            ultimateDebtor = None,
+            creditor = Some(Party(Some(toAccount.accountHolder))),
             creditorAccount = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)),
             creditorAgent = Some(Bic(toAccount.bankId.value)),
+            ultimateCreditor = None,
             purposeCode = None,
             description = Some(description),
             creationDateTime = LocalDateTime.now(),
@@ -83,7 +86,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
             to = CounterpartyAccountReference(
               counterparty_iban = creditTransferTransaction.creditorAccount.map(_.iban).getOrElse(""),
               bank_bic = creditTransferTransaction.creditorAgent.map(_.bic),
-              counterparty_name = creditTransferTransaction.creditorName
+              counterparty_name = creditTransferTransaction.creditor.flatMap(_.name)
             ).asJson,
             value = AmountOfMoney(
               currency = transactionRequestCommonBody.value.currency,
@@ -167,7 +170,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   to = CounterpartyAccountReference(
                     counterparty_iban = originalTransaction.debtorAccount.map(_.iban).getOrElse(""),
                     bank_bic = originalTransaction.debtorAgent.map(_.bic),
-                    counterparty_name = originalTransaction.debtorName
+                    counterparty_name = originalTransaction.debtor.flatMap(_.name)
                   ).asJson,
                   value = AmountOfMoney(
                     currency = "EUR",
@@ -182,7 +185,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                 for {
                   createdObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
                   _ <- PaymentReturnMessage.returnTransaction(
-                    originalTransaction, originalTransaction.creditorName.orElse(originalTransaction.creditorAgent.map(_.bic)).getOrElse(""),
+                    originalTransaction, originalTransaction.creditor.flatMap(_.name).orElse(originalTransaction.creditorAgent.map(_.bic)).getOrElse(""),
                     refundReasonCode, Some(transactionRequestId), Some(createdObpTransactionId))
                 } yield createdObpTransactionId
               }).fallbackTo(accountTo.flatMap(_ => { // Case where the counterparty refund the account
@@ -190,7 +193,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   from = CounterpartyAccountReference(
                     counterparty_iban = originalTransaction.creditorAccount.map(_.iban).getOrElse(""),
                     bank_bic = originalTransaction.creditorAgent.map(_.bic),
-                    counterparty_name = originalTransaction.creditorName
+                    counterparty_name = originalTransaction.creditor.flatMap(_.name)
                   ).asJson,
                   to = CustomerAccountReference(
                     account_iban = originalTransaction.debtorAccount.map(_.iban).getOrElse(""),
@@ -272,7 +275,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                       case FRAUDULENT_ORIGIN | TECHNICAL_PROBLEM | DUPLICATE_PAYMENT =>
                         originalTransaction.debtorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic)
                       case REQUESTED_BY_CUSTOMER | WRONG_AMOUNT | INVALID_CREDITOR_ACCOUNT_NUMBER =>
-                        originalTransaction.debtorName.getOrElse(Adapter.BANK_BIC.bic)
+                        originalTransaction.debtor.flatMap(_.name).getOrElse(Adapter.BANK_BIC.bic)
                     }
                     val additionalInformation = transactionRequest.body.description.split(" - ").reverse.drop(2).reverse.mkString(" - ")
                     for {
@@ -314,7 +317,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                     originalCreditTransferTransaction,
                     Seq(PaymentRecallNegativeAnswerMessage.ReasonInformation(
                       originator = paymentRecallNegativeAnswerReasonCode match {
-                        case CUSTOMER_DECISION => originalCreditTransferTransaction.creditorName
+                        case CUSTOMER_DECISION => originalCreditTransferTransaction.creditor.flatMap(_.name)
                           .orElse(originalCreditTransferTransaction.creditorAgent.map(_.bic))
                           .getOrElse(Adapter.BANK_BIC.bic)
                         case _ => originalCreditTransferTransaction.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic)
