@@ -43,7 +43,7 @@ case class PaymentReturnMessage(
               IntrBkSttlmDt
             })
           },
-          SttlmInf = SettlementInformation13(SttlmMtd = CLRG),
+          SttlmInf = SettlementInformation13(SttlmMtd = CLRG), // TODO : put this in the message custom fields
           InstgAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
           InstdAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
         ),
@@ -103,6 +103,8 @@ case class PaymentReturnMessage(
                   IntrBkSttlmDt
                 })
               },
+              SttlmInf = transaction._1.settlementInformation.map(_.toSettlementInformation13),
+              PmtTpInf = None, // TODO
               RmtInf = transaction._1.description.map(description => RemittanceInformation5(Ustrd = Seq(description))),
               Dbtr = transaction._1.debtor.map(_.toPartyIdentification32),
               DbtrAcct = transaction._1.debtorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
@@ -158,6 +160,8 @@ object PaymentReturnMessage {
             settlementDate = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
+            settlementInformation = ???,
+            paymentTypeInformation = ???,
             status = SepaCreditTransferTransactionStatus.RETURNED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,

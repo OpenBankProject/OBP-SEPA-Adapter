@@ -192,6 +192,8 @@ object InquiryClaimValueDateCorrectionMessage {
             transactionIdInSepaFile = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxId.getOrElse(""),
             instructionId = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlInstrId,
             endToEndId = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlEndToEndId.getOrElse(""),
+            settlementInformation = None, // TODO
+            paymentTypeInformation = None, // TODO
             status = SepaCreditTransferTransactionStatus.CLAIMED_VALUE_DATE_CORRECTION,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_CASE_ID.toString,

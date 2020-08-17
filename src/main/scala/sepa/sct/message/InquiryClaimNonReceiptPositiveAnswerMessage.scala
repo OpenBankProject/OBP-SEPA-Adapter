@@ -228,6 +228,8 @@ object InquiryClaimNonReceiptPositiveAnswerMessage {
             transactionIdInSepaFile = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxId).getOrElse(""),
             instructionId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlInstrId),
             endToEndId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlEndToEndId).getOrElse(""),
+            settlementInformation = None, // TODO
+            paymentTypeInformation = None, // TODO
             status = SepaCreditTransferTransactionStatus.CLAIM_NON_RECEIPT_ACCEPTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_CASE_ID.toString,

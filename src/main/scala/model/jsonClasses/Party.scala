@@ -15,7 +15,8 @@ import sepa.sct.generated._
 case class Party(
                   name: Option[String] = None,
                   postalAddress: Option[PostalAddress] = None,
-                  identification: Option[Either[PersonIdentification, OrganisationIdentification]] = None
+                  identification: Option[Either[PersonIdentification, OrganisationIdentification]] = None // TODO : check if we keep the Person / Org id in case of OTHER
+                  // TODO : replace the Either by an "iendtificationType" field : more comprehensible than Left/Right in Json
                 ) {
   def toJson: Json = this.asJson
 
@@ -1147,7 +1148,6 @@ case class OtherIdentificationScheme(
 object OtherIdentificationSchemeType extends Enumeration {
   type OtherIdentificationSchemeType = Value
 
-  // Implicit enum decoder/encoder
   implicit val decoder: Decoder[Value] = Decoder.decodeEnumeration(this)
   implicit val encoder: Encoder[Value] = Encoder.encodeEnumeration(this)
 

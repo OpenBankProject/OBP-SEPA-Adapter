@@ -7,7 +7,7 @@ import com.openbankproject.commons.model.{Iban, TransactionId, TransactionReques
 import io.circe.Json
 import model.Schema.{obpTransactionIdColumnType, obpTransactionRequestIdColumnType}
 import model.enums.SepaCreditTransferTransactionStatus.SepaCreditTransferTransactionStatus
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import slick.dbio.DBIOAction
 import slick.jdbc.PostgresProfile.api._
@@ -33,9 +33,10 @@ case class SepaCreditTransferTransaction(
                                           transactionIdInSepaFile: String,
                                           instructionId: Option[String],
                                           endToEndId: String,
+                                          settlementInformation: Option[SettlementInformation],
+                                          paymentTypeInformation: Option[PaymentTypeInformation],
                                           status: SepaCreditTransferTransactionStatus,
                                           customFields: Option[Json]
-                                          // TODO : Add missing fields : Settlement information, payment information
                                         ) {
   def insert(): Future[Unit] = Schema.db.run(DBIOAction.seq(Schema.sepaCreditTransferTransactions += this))
 

@@ -250,6 +250,8 @@ object InquiryClaimValueDateCorrectionPositiveAnswerMessage {
             transactionIdInSepaFile = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxId).getOrElse(""),
             instructionId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlInstrId),
             endToEndId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlEndToEndId).getOrElse(""),
+            settlementInformation = None, // TODO
+            paymentTypeInformation = None, // TODO
             status = SepaCreditTransferTransactionStatus.CLAIM_VALUE_DATE_CORRECTION_ACCEPTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_RESPONSE_CASE_ID.toString,

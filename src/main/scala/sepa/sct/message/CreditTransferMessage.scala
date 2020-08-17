@@ -6,7 +6,7 @@ import java.util.{GregorianCalendar, UUID}
 import com.openbankproject.commons.model.Iban
 import javax.xml.datatype.DatatypeFactory
 import model.enums.{SepaCreditTransferTransactionStatus, SepaMessageStatus, SepaMessageType}
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -36,8 +36,8 @@ case class CreditTransferMessage(
               IntrBkSttlmDt
             })
           },
-          SttlmInf = SettlementInformation13(SttlmMtd = CLRG),
-          PmtTpInf = Some(PaymentTypeInformation21(SvcLvl = Some(ServiceLevel8Choice(DataRecord(<Cd></Cd>, "SEPA"))))),
+          SttlmInf = SettlementInformation13(SttlmMtd = CLRG),// TODO : put this in the message custom fields
+          PmtTpInf = Some(PaymentTypeInformation21(SvcLvl = Some(ServiceLevel8Choice(DataRecord(<Cd></Cd>, "SEPA"))))),// TODO : put this in the message custom fields
           InstgAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
           InstdAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
         ),
@@ -104,6 +104,8 @@ object CreditTransferMessage {
             transactionIdInSepaFile = transaction.PmtId.TxId,
             instructionId = transaction.PmtId.InstrId,
             endToEndId = transaction.PmtId.EndToEndId,
+            settlementInformation = Some(SettlementInformation.fromSettlementInformation13(document.FIToFICstmrCdtTrf.GrpHdr.SttlmInf)),
+            paymentTypeInformation = document.FIToFICstmrCdtTrf.GrpHdr.PmtTpInf.map(PaymentTypeInformation.fromPaymentTypeInformation21),
             status = SepaCreditTransferTransactionStatus.UNPROCESSED,
             customFields = None
           ), transaction.PmtId.TxId)

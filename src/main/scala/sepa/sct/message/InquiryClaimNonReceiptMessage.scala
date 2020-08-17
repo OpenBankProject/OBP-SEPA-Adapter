@@ -169,6 +169,8 @@ object InquiryClaimNonReceiptMessage {
             transactionIdInSepaFile = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxId.getOrElse(""),
             instructionId = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlInstrId,
             endToEndId = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlEndToEndId.getOrElse(""),
+            settlementInformation = None, // TODO
+            paymentTypeInformation = None, // TODO
             status = SepaCreditTransferTransactionStatus.CLAIMED_NON_RECEIPT,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_NON_RECEIPT_CASE_ID.toString,

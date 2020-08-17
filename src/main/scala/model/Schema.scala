@@ -13,7 +13,7 @@ import model.enums.SepaFileType.SepaFileType
 import model.enums.SepaMessageStatus.SepaMessageStatus
 import model.enums.SepaMessageType.SepaMessageType
 import model.enums._
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import shapeless.{Generic, HNil}
 import slick.ast.BaseTypedType
@@ -32,6 +32,8 @@ object Schema {
   implicit lazy val obpTransactionRequestIdColumnType = MappedColumnType.base[TransactionRequestId, String](_.value, TransactionRequestId(_))
   implicit lazy val obpTransactionIdColumnType = MappedColumnType.base[TransactionId, String](_.value, TransactionId(_))
   implicit lazy val partyColumnType = MappedColumnType.base[Option[Party], String](_.map(_.toJson.toString).orNull, Party.fromJson)
+  implicit lazy val settlementInformationColumnType = MappedColumnType.base[Option[SettlementInformation], String](_.map(_.toJson.toString).orNull, SettlementInformation.fromJson)
+  implicit lazy val paymentInformationTypeColumnType = MappedColumnType.base[Option[PaymentTypeInformation], String](_.map(_.toJson.toString).orNull, PaymentTypeInformation.fromJson)
 
   implicit lazy val sepaFileTypeColumnType = MappedColumnType.base[SepaFileType, String](_.toString, SepaFileType.withName)
   implicit lazy val sepaFileStatusColumnType = MappedColumnType.base[SepaFileStatus, String](_.toString, SepaFileStatus.withName)
@@ -89,9 +91,11 @@ object Schema {
     def transactionIdInSepaFile = column[String]("transaction_id_in_sepa_file")
     def instructionId = column[Option[String]]("instruction_id")
     def endToEndId = column[String]("end_to_end_id")
+    def settlementInformation = column[Option[SettlementInformation]]("settlement_information")
+    def paymentTypeInformation = column[Option[PaymentTypeInformation]]("payment_type_information")
     def status = column[SepaCreditTransferTransactionStatus]("status")
     def customFields = column[Option[Json]]("custom_fields")
-    def * = (id :: amount :: debtor :: debtorAccount :: debtorAgent :: ultimateDebtor :: creditor :: creditorAccount :: creditorAgent :: ultimateCreditor :: purposeCode :: description :: creationDateTime :: settlementDate :: transactionIdInSepaFile :: instructionId :: endToEndId :: status :: customFields :: HNil).mappedWith(Generic[SepaCreditTransferTransaction])
+    def * = (id :: amount :: debtor :: debtorAccount :: debtorAgent :: ultimateDebtor :: creditor :: creditorAccount :: creditorAgent :: ultimateCreditor :: purposeCode :: description :: creationDateTime :: settlementDate :: transactionIdInSepaFile :: instructionId :: endToEndId :: settlementInformation :: paymentTypeInformation :: status :: customFields :: HNil).mappedWith(Generic[SepaCreditTransferTransaction])
   }
   val sepaCreditTransferTransactions = TableQuery[SepaCreditTransferTransactions]
 

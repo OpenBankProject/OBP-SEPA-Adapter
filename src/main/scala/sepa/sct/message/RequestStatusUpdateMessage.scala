@@ -116,6 +116,8 @@ object RequestStatusUpdateMessage {
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.get,
             instructionId = xmlTransaction.OrgnlInstrId,
             endToEndId = xmlTransaction.OrgnlEndToEndId.get,
+            settlementInformation = None, // TODO
+            paymentTypeInformation = None, // TODO
             status = SepaCreditTransferTransactionStatus.REQUESTED_STATUS_UPDATE,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.REQUEST_STATUS_UPDATE_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,

@@ -16,7 +16,7 @@ import model.enums.sepaReasonCodes.PaymentRecallReasonCode._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
 import model.enums.sepaReasonCodes.{PaymentRecallNegativeAnswerReasonCode, PaymentReturnReasonCode}
 import model.enums.{SepaCreditTransferTransactionStatus, SepaFileType, SepaMessageStatus, SepaMessageType}
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, ServiceLevelCode, SettlementInformation, SettlementMethod}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
 import sepa.SepaUtil
@@ -74,6 +74,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
             transactionIdInSepaFile = SepaUtil.removeDashesToUUID(creditTransferTransactionId),
             instructionId = None,
             endToEndId = SepaUtil.removeDashesToUUID(creditTransferTransactionId),
+            settlementInformation = Some(SettlementInformation(settlementMethod = SettlementMethod.CLEARING_SYSTEM)),
+            paymentTypeInformation = Some(PaymentTypeInformation(serviceLevelCode = Some(ServiceLevelCode.SEPA))),
             status = SepaCreditTransferTransactionStatus.UNPROCESSED,
             customFields = None
           )
