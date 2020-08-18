@@ -8,7 +8,7 @@ import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation, SettlementMethod}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -25,7 +25,6 @@ case class PaymentReturnMessage(
                                  message: SepaMessage,
                                  creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
                                ) extends SctMessage[Document] {
-  // TODO : include potential charges in this message
   def toXML: NodeSeq = {
     val document = Document(
       PaymentReturnV02(
@@ -43,7 +42,9 @@ case class PaymentReturnMessage(
               IntrBkSttlmDt
             })
           },
-          SttlmInf = SettlementInformation13(SttlmMtd = CLRG), // TODO : put this in the message custom fields
+          SttlmInf = message.customFields.flatMap(json =>
+            (json \\ SepaMessageCustomField.PAYMENT_RETURN_SETTLEMENT_INFORMATION.toString).headOption)
+            .flatMap(json => SettlementInformation.fromJson(json.toString)).map(_.toSettlementInformation13PR).get,
           InstgAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
           InstdAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
         ),
@@ -103,8 +104,8 @@ case class PaymentReturnMessage(
                   IntrBkSttlmDt
                 })
               },
-              SttlmInf = transaction._1.settlementInformation.map(_.toSettlementInformation13),
-              PmtTpInf = None, // TODO
+              SttlmInf = transaction._1.settlementInformation.map(_.toSettlementInformation13PR),
+              PmtTpInf = transaction._1.paymentTypeInformation.map(_.toPaymentTypeInformation22),
               RmtInf = transaction._1.description.map(description => RemittanceInformation5(Ustrd = Seq(description))),
               Dbtr = transaction._1.debtor.map(_.toPartyIdentification32),
               DbtrAcct = transaction._1.debtorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
@@ -140,6 +141,8 @@ object PaymentReturnMessage {
           instigatingAgent = document.PmtRtr.GrpHdr.InstgAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
           instigatedAgent = document.PmtRtr.GrpHdr.InstdAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
           customFields = document.PmtRtr.OrgnlGrpInf.map(originalGroupInfo => Json.fromJsonObject(JsonObject.empty
+            .add(SepaMessageCustomField.PAYMENT_RETURN_SETTLEMENT_INFORMATION.toString,
+              SettlementInformation.fromSettlementInformation13(document.PmtRtr.GrpHdr.SttlmInf).toJson)
             .add(SepaMessageCustomField.ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString, Json.fromString(originalGroupInfo.OrgnlMsgId))
             .add(SepaMessageCustomField.ORIGINAL_MESSAGE_TYPE.toString, Json.fromString(originalGroupInfo.OrgnlMsgNmId))))
         ),
@@ -160,8 +163,8 @@ object PaymentReturnMessage {
             settlementDate = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
-            settlementInformation = ???,
-            paymentTypeInformation = ???,
+            settlementInformation = xmlTransaction.OrgnlTxRef.flatMap(_.SttlmInf).map(SettlementInformation.fromSettlementInformation13),
+            paymentTypeInformation = xmlTransaction.OrgnlTxRef.flatMap(_.PmtTpInf).map(PaymentTypeInformation.fromPaymentTypeInformation22),
             status = SepaCreditTransferTransactionStatus.RETURNED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,
@@ -178,7 +181,7 @@ object PaymentReturnMessage {
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_CHARGES_AMOUNT.toString,
                 Json.fromString(xmlTransaction.ChrgsInf.headOption.map(_.Amt.value.toString).getOrElse("")))
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_CHARGES_PARTY.toString,
-                Json.fromString(xmlTransaction.RtrRsnInf.headOption.flatMap(_.Rsn.map(_.returnreason5choicableoption.value)).getOrElse("")))
+                Json.fromString(xmlTransaction.ChrgsInf.headOption.flatMap(_.Pty.FinInstnId.BIC).getOrElse("")))
             ))
           )
           (originalSepaCreditTransferTransaction, xmlTransaction.RtrId.getOrElse(""))
@@ -198,7 +201,11 @@ object PaymentReturnMessage {
           val message = SepaMessage(
             sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_PAYMENT_RETURN,
             SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
-            numberOfTransactions = 0, totalAmount = 0, None, None, None, None
+            numberOfTransactions = 0, totalAmount = 0, None, None, None,
+            customFields = Some(Json.fromJsonObject(JsonObject.empty
+              .add(SepaMessageCustomField.PAYMENT_RETURN_SETTLEMENT_INFORMATION.toString,
+                SettlementInformation(settlementMethod = SettlementMethod.CLEARING_SYSTEM).toJson)
+            ))
           )
           for {
             _ <- message.insert()

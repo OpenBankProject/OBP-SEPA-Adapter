@@ -9,13 +9,14 @@ import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
 import com.openbankproject.commons.model.enums.TransactionRequestStatus
+import io.circe.{Json, JsonObject}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import model.enums.sepaReasonCodes.PaymentRecallNegativeAnswerReasonCode.{apply => _, values => _, withName => _, _}
 import model.enums.sepaReasonCodes.PaymentRecallReasonCode._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode.PaymentReturnReasonCode
 import model.enums.sepaReasonCodes.{PaymentRecallNegativeAnswerReasonCode, PaymentReturnReasonCode}
-import model.enums.{SepaCreditTransferTransactionStatus, SepaFileType, SepaMessageStatus, SepaMessageType}
+import model.enums.{SepaCreditTransferTransactionStatus, SepaFileType, SepaMessageCustomField, SepaMessageStatus, SepaMessageType}
 import model.jsonClasses.{Party, PaymentTypeInformation, ServiceLevelCode, SettlementInformation, SettlementMethod}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage}
@@ -109,7 +110,13 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                 val message = SepaMessage(
                   sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_CREDIT_TRANSFER,
                   SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
-                  numberOfTransactions = 0, totalAmount = 0, None, None, None, None
+                  numberOfTransactions = 0, totalAmount = 0, None, None, None,
+                  customFields = Some(Json.fromJsonObject(JsonObject.empty
+                    .add(SepaMessageCustomField.CREDIT_TRANFER_SETTLEMENT_INFORMATION.toString,
+                      SettlementInformation(settlementMethod = SettlementMethod.CLEARING_SYSTEM).toJson)
+                    .add(SepaMessageCustomField.CREDIT_TRANFER_PAYMENT_TYPE_INFORMATION.toString,
+                      PaymentTypeInformation(serviceLevelCode = Some(ServiceLevelCode.SEPA)).toJson)
+                  ))
                 )
                 message.insert()
                 message

@@ -31,9 +31,9 @@ object Schema {
   implicit lazy val jsonColumnType = MappedColumnType.base[Json, String](_.toString(), parser.parse(_).toOption.orNull)
   implicit lazy val obpTransactionRequestIdColumnType = MappedColumnType.base[TransactionRequestId, String](_.value, TransactionRequestId(_))
   implicit lazy val obpTransactionIdColumnType = MappedColumnType.base[TransactionId, String](_.value, TransactionId(_))
-  implicit lazy val partyColumnType = MappedColumnType.base[Option[Party], String](_.map(_.toJson.toString).orNull, Party.fromJson)
-  implicit lazy val settlementInformationColumnType = MappedColumnType.base[Option[SettlementInformation], String](_.map(_.toJson.toString).orNull, SettlementInformation.fromJson)
-  implicit lazy val paymentInformationTypeColumnType = MappedColumnType.base[Option[PaymentTypeInformation], String](_.map(_.toJson.toString).orNull, PaymentTypeInformation.fromJson)
+  implicit lazy val partyColumnType = MappedColumnType.base[Party, String](_.toJson.toString, Party.fromJson(_).get)
+  implicit lazy val settlementInformationColumnType = MappedColumnType.base[SettlementInformation, String](_.toJson.toString, SettlementInformation.fromJson(_).get)
+  implicit lazy val paymentInformationTypeColumnType = MappedColumnType.base[PaymentTypeInformation, String](_.toJson.toString, PaymentTypeInformation.fromJson(_).get)
 
   implicit lazy val sepaFileTypeColumnType = MappedColumnType.base[SepaFileType, String](_.toString, SepaFileType.withName)
   implicit lazy val sepaFileStatusColumnType = MappedColumnType.base[SepaFileStatus, String](_.toString, SepaFileStatus.withName)

@@ -9,6 +9,11 @@ object SepaMessageCustomField extends Enumeration {
   val ORIGINATOR = Value("originator")
   val REASON_CODE = Value("reasonCode")
 
+  val CREDIT_TRANFER_SETTLEMENT_INFORMATION = Value("creditTransferSettlementInformation")
+  val CREDIT_TRANFER_PAYMENT_TYPE_INFORMATION = Value("creditTransferPaymentTypeInformation")
+
+  val PAYMENT_RETURN_SETTLEMENT_INFORMATION = Value("paymentReturnSettlementInformation")
+
   // TODO : remove this field : useless ?
   val PAYMENT_REJECT_GROUP_STATUS = Value("paymentRejectGroupStatus")
 

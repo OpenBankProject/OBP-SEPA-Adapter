@@ -7,7 +7,7 @@ import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -84,8 +84,8 @@ case class InquiryClaimValueDateCorrectionPositiveAnswerMessage(
                 settlementDate
               }))
             },
-            SttlmInf = None,
-            PmtTpInf = None,
+            SttlmInf = creditTransferTransactions.head._1.settlementInformation.map(_.toSettlementInstruction4),
+            PmtTpInf = creditTransferTransactions.head._1.paymentTypeInformation.map(_.toPaymentTypeInformation25),
             RmtInf = creditTransferTransactions.head._1.description.map(description => RemittanceInformation15(Ustrd = Seq(description))),
             Dbtr = creditTransferTransactions.head._1.debtor.map(_.toParty35Choice),
             DbtrAcct = creditTransferTransactions.head._1.debtorAccount.map(account => CashAccount24(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
@@ -250,8 +250,10 @@ object InquiryClaimValueDateCorrectionPositiveAnswerMessage {
             transactionIdInSepaFile = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxId).getOrElse(""),
             instructionId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlInstrId),
             endToEndId = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlEndToEndId).getOrElse(""),
-            settlementInformation = None, // TODO
-            paymentTypeInformation = None, // TODO
+            settlementInformation = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef)
+              .flatMap(_.SttlmInf).map(SettlementInformation.fromSettlementInstruction4),
+            paymentTypeInformation = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxRef)
+              .flatMap(_.PmtTpInf).map(PaymentTypeInformation.fromPaymentTypeInformation25),
             status = SepaCreditTransferTransactionStatus.CLAIM_VALUE_DATE_CORRECTION_ACCEPTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_RESPONSE_CASE_ID.toString,

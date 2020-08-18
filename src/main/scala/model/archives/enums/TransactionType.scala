@@ -14,9 +14,6 @@ object TransactionType extends Enumeration {
   val SCT_OUT_RETURN: TransactionType.Value = Value
   val SCT_OUT_RECALL: TransactionType.Value = Value
 
-  /* TODO : SEPA Direct Debit */
-
-
   /* Card Payment */
   val CARD_CHIP_PAYMENT: TransactionType.Value = Value
   val CARD_NFC_PAYMENT: TransactionType.Value = Value

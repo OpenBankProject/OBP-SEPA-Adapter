@@ -7,7 +7,7 @@ import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -52,8 +52,8 @@ case class RequestStatusUpdateMessage(
                   IntrBkSttlmDt
                 })
               },
-              SttlmInf = None,
-              PmtTpInf = None,
+              SttlmInf = creditTransferTransactions.head._1.settlementInformation.map(_.toSettlementInstruction4),
+              PmtTpInf = creditTransferTransactions.head._1.paymentTypeInformation.map(_.toPaymentTypeInformation25),
               RmtInf = transaction._1.description.map(description =>
                 RemittanceInformation11(Ustrd = Seq(description))),
               Dbtr = transaction._1.debtor.map(_.toPartyIdentification43),
@@ -116,8 +116,10 @@ object RequestStatusUpdateMessage {
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.get,
             instructionId = xmlTransaction.OrgnlInstrId,
             endToEndId = xmlTransaction.OrgnlEndToEndId.get,
-            settlementInformation = None, // TODO
-            paymentTypeInformation = None, // TODO
+            settlementInformation = xmlTransaction.OrgnlTxRef
+              .flatMap(_.SttlmInf).map(SettlementInformation.fromSettlementInstruction4),
+            paymentTypeInformation = xmlTransaction.OrgnlTxRef
+              .flatMap(_.PmtTpInf).map(PaymentTypeInformation.fromPaymentTypeInformation25),
             status = SepaCreditTransferTransactionStatus.REQUESTED_STATUS_UPDATE,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.REQUEST_STATUS_UPDATE_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString,

@@ -4,8 +4,9 @@ import java.time.{LocalDateTime, ZoneId}
 import java.util.{GregorianCalendar, UUID}
 
 import com.openbankproject.commons.model.Iban
+import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
-import model.enums.{SepaCreditTransferTransactionStatus, SepaMessageStatus, SepaMessageType}
+import model.enums.{SepaCreditTransferTransactionStatus, SepaMessageCustomField, SepaMessageStatus, SepaMessageType}
 import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
@@ -36,8 +37,12 @@ case class CreditTransferMessage(
               IntrBkSttlmDt
             })
           },
-          SttlmInf = SettlementInformation13(SttlmMtd = CLRG),// TODO : put this in the message custom fields
-          PmtTpInf = Some(PaymentTypeInformation21(SvcLvl = Some(ServiceLevel8Choice(DataRecord(<Cd></Cd>, "SEPA"))))),// TODO : put this in the message custom fields
+          SttlmInf = message.customFields.flatMap(json =>
+            (json \\ SepaMessageCustomField.CREDIT_TRANFER_SETTLEMENT_INFORMATION.toString).headOption)
+              .flatMap(json => SettlementInformation.fromJson(json.toString)).map(_.toSettlementInformation13CT).get,
+          PmtTpInf = message.customFields.flatMap(json =>
+            (json \\ SepaMessageCustomField.CREDIT_TRANFER_PAYMENT_TYPE_INFORMATION.toString).headOption)
+              .flatMap(json => PaymentTypeInformation.fromJson(json.toString)).map(_.toPaymentTypeInformation21),
           InstgAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
           InstdAgt = message.instigatingAgent.map(agent => BranchAndFinancialInstitutionIdentification4(FinancialInstitutionIdentification7(Some(agent.bic)))),
         ),
@@ -83,7 +88,12 @@ object CreditTransferMessage {
           settlementDate = document.FIToFICstmrCdtTrf.GrpHdr.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate),
           instigatingAgent = document.FIToFICstmrCdtTrf.GrpHdr.InstgAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
           instigatedAgent = document.FIToFICstmrCdtTrf.GrpHdr.InstdAgt.flatMap(_.FinInstnId.BIC.map(Bic)),
-          customFields = None
+          customFields = Some(Json.fromJsonObject(JsonObject.empty
+            .add(SepaMessageCustomField.CREDIT_TRANFER_SETTLEMENT_INFORMATION.toString,
+              SettlementInformation.fromSettlementInformation13(document.FIToFICstmrCdtTrf.GrpHdr.SttlmInf).toJson)
+            .add(SepaMessageCustomField.CREDIT_TRANFER_PAYMENT_TYPE_INFORMATION.toString,
+              document.FIToFICstmrCdtTrf.GrpHdr.PmtTpInf.map(PaymentTypeInformation.fromPaymentTypeInformation21).map(_.toJson).getOrElse(Json.Null))
+          ))
         ),
         creditTransferTransactions = document.FIToFICstmrCdtTrf.CdtTrfTxInf.map(transaction =>
           (SepaCreditTransferTransaction(

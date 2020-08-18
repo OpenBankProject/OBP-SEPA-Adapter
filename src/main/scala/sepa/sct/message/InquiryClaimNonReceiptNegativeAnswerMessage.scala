@@ -15,7 +15,6 @@ import sepa.sct.generated.inquiryClaimNonReceiptNegativeAnswer._
 import scala.util.Try
 import scala.xml.{Elem, NodeSeq}
 
-// TODO : For all Messages, include custom fields in the class
 case class InquiryClaimNonReceiptNegativeAnswerMessage(
                                                         message: SepaMessage,
                                                         creditTransferTransactions: Seq[(SepaCreditTransferTransaction, String)]
@@ -154,8 +153,8 @@ object InquiryClaimNonReceiptNegativeAnswerMessage {
             transactionIdInSepaFile = document.RsltnOfInvstgtn.ModDtls.flatMap(_.OrgnlTxId).getOrElse(""),
             instructionId = None,
             endToEndId = "",
-            settlementInformation = None, // TODO
-            paymentTypeInformation = None, // TODO
+            settlementInformation = None,
+            paymentTypeInformation = None,
             status = SepaCreditTransferTransactionStatus.CLAIM_NON_RECEIPT_REJECTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_NON_RECEIPT_RESPONSE_CASE_ID.toString,

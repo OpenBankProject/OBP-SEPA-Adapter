@@ -7,7 +7,7 @@ import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -74,8 +74,8 @@ case class InquiryClaimNonReceiptMessage(
                 }).get
               },
               OrgnlTxRef = Some(OriginalTransactionReference27(
-                SttlmInf = None,
-                PmtTpInf = None,
+                SttlmInf = creditTransferTransactions.head._1.settlementInformation.map(_.toSettlementInstruction4),
+                PmtTpInf = creditTransferTransactions.head._1.paymentTypeInformation.map(_.toPaymentTypeInformation25),
                 RmtInf = creditTransferTransactions.head._1.description.map(description => RemittanceInformation15(Ustrd = Seq(description))),
                 Dbtr = creditTransferTransactions.head._1.debtor.map(_.toParty35Choice),
                 DbtrAcct = creditTransferTransactions.head._1.debtorAccount.map(account => CashAccount24(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
@@ -169,8 +169,10 @@ object InquiryClaimNonReceiptMessage {
             transactionIdInSepaFile = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxId.getOrElse(""),
             instructionId = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlInstrId,
             endToEndId = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlEndToEndId.getOrElse(""),
-            settlementInformation = None, // TODO
-            paymentTypeInformation = None, // TODO
+            settlementInformation = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxRef
+              .flatMap(_.SttlmInf).map(SettlementInformation.fromSettlementInstruction4),
+            paymentTypeInformation = document.ClmNonRct.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxRef
+              .flatMap(_.PmtTpInf).map(PaymentTypeInformation.fromPaymentTypeInformation25),
             status = SepaCreditTransferTransactionStatus.CLAIMED_NON_RECEIPT,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_NON_RECEIPT_CASE_ID.toString,

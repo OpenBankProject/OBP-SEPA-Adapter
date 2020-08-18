@@ -10,7 +10,7 @@ import javax.xml.datatype.DatatypeFactory
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentRecallNegativeAnswerReasonCode
 import model.enums.sepaReasonCodes.PaymentRecallNegativeAnswerReasonCode.{CLOSED_ACCOUNT_NUMBER, _}
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -99,8 +99,8 @@ case class PaymentRecallNegativeAnswerMessage(
                     settlementDate
                   })
                 },
-                SttlmInf = None,
-                PmtTpInf = None,
+                SttlmInf = transaction._1.settlementInformation.map(_.toSettlementInformation13),
+                PmtTpInf = transaction._1.paymentTypeInformation.map(_.toPaymentTypeInformation22),
                 RmtInf = transaction._1.description.map(description => RemittanceInformation5(Ustrd = Seq(description))),
                 Dbtr = transaction._1.debtor.map(_.toPartyIdentification32),
                 DbtrAcct = transaction._1.debtorAccount.map(account => CashAccount16(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
@@ -164,8 +164,8 @@ object PaymentRecallNegativeAnswerMessage {
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             instructionId = xmlTransaction.OrgnlInstrId,
             endToEndId = xmlTransaction.OrgnlEndToEndId.getOrElse(""),
-            settlementInformation = None, // TODO
-            paymentTypeInformation = None, // TODO
+            settlementInformation = xmlTransaction.OrgnlTxRef.flatMap(_.SttlmInf).map(SettlementInformation.fromSettlementInformation13),
+            paymentTypeInformation = xmlTransaction.OrgnlTxRef.flatMap(_.PmtTpInf).map(PaymentTypeInformation.fromPaymentTypeInformation22),
             status = SepaCreditTransferTransactionStatus.RECALL_REJECTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString,

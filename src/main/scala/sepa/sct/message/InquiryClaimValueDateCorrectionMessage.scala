@@ -7,7 +7,7 @@ import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import javax.xml.datatype.DatatypeFactory
 import model.enums._
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import scalaxb.DataRecord
@@ -74,8 +74,8 @@ case class InquiryClaimValueDateCorrectionMessage(
                 }).get
               },
               OrgnlTxRef = Some(OriginalTransactionReference27(
-                SttlmInf = None,
-                PmtTpInf = None,
+                SttlmInf = creditTransferTransactions.head._1.settlementInformation.map(_.toSettlementInstruction4),
+                PmtTpInf = creditTransferTransactions.head._1.paymentTypeInformation.map(_.toPaymentTypeInformation25),
                 RmtInf = creditTransferTransactions.head._1.description.map(description => RemittanceInformation15(Ustrd = Seq(description))),
                 Dbtr = creditTransferTransactions.head._1.debtor.map(_.toParty35Choice),
                 DbtrAcct = creditTransferTransactions.head._1.debtorAccount.map(account => CashAccount24(Id = AccountIdentification4Choice(DataRecord(<IBAN></IBAN>, account.iban)))),
@@ -192,8 +192,10 @@ object InquiryClaimValueDateCorrectionMessage {
             transactionIdInSepaFile = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxId.getOrElse(""),
             instructionId = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlInstrId,
             endToEndId = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlEndToEndId.getOrElse(""),
-            settlementInformation = None, // TODO
-            paymentTypeInformation = None, // TODO
+            settlementInformation = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxRef
+              .flatMap(_.SttlmInf).map(SettlementInformation.fromSettlementInstruction4),
+            paymentTypeInformation = document.ReqToModfyPmt.Undrlyg.underlyingtransaction4choicableoption.value.OrgnlTxRef
+              .flatMap(_.PmtTpInf).map(PaymentTypeInformation.fromPaymentTypeInformation25),
             status = SepaCreditTransferTransactionStatus.CLAIMED_VALUE_DATE_CORRECTION,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.INQUIRY_CLAIM_VALUE_DATE_CORRECTION_CASE_ID.toString,

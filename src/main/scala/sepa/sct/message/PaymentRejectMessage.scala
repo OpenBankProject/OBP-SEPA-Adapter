@@ -6,7 +6,7 @@ import java.util.UUID
 import com.openbankproject.commons.model.Iban
 import io.circe.{Json, JsonObject}
 import model.enums._
-import model.jsonClasses.Party
+import model.jsonClasses.{Party, PaymentTypeInformation, SettlementInformation}
 import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaMessage}
 import sepa.sct.generated.paymentReject._
@@ -60,14 +60,14 @@ object PaymentRejectMessage {
             xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAcct.map(account => Iban(account.Id.accountidentification4choicableoption.value.toString))),
             xmlTransaction.OrgnlTxRef.flatMap(_.CdtrAgt.flatMap(agent => agent.FinInstnId.BIC.map(Bic))),
             ultimateCreditor = xmlTransaction.OrgnlTxRef.flatMap(_.UltmtCdtr).map(Party.fromPartyIdentification32),
-            None,
+            purposeCode = None,
             xmlTransaction.OrgnlTxRef.flatMap(_.RmtInf.flatMap(_.Ustrd.headOption)),
             creationDateTime = LocalDateTime.now(),
             settlementDate = xmlTransaction.OrgnlTxRef.flatMap(_.IntrBkSttlmDt.map(_.toGregorianCalendar.toZonedDateTime.toLocalDate)),
             transactionIdInSepaFile = xmlTransaction.OrgnlTxId.getOrElse(""),
             xmlTransaction.OrgnlInstrId, xmlTransaction.OrgnlEndToEndId.getOrElse(""),
-            settlementInformation = None, // TODO
-            paymentTypeInformation = None, // TODO
+            settlementInformation = xmlTransaction.OrgnlTxRef.flatMap(_.SttlmInf).map(SettlementInformation.fromSettlementInformation13),
+            paymentTypeInformation = xmlTransaction.OrgnlTxRef.flatMap(_.PmtTpInf).map(PaymentTypeInformation.fromPaymentTypeInformation22),
             status = SepaCreditTransferTransactionStatus.REJECTED,
             customFields = Some(Json.fromJsonObject(JsonObject.empty
               .add(SepaCreditTransferTransactionCustomField.PAYMENT_REJECT_ORIGINATOR.toString,
