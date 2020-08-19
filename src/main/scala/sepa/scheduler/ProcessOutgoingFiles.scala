@@ -14,7 +14,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.xml.XML
 
-
+/** Process all the messages with the status `UNPROCESSED` */
 object ProcessOutgoingFiles extends App {
 
   val result = SepaMessage.getUnprocessed.flatMap(messages => Future.sequence(messages.map { message =>
@@ -34,6 +34,7 @@ object ProcessOutgoingFiles extends App {
       _ <- outgoingFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
       _ <- Future(println(s"${sctMessage.creditTransferTransactions.length} transactions accounted in file ${outgoingFile.name}"))
     } yield ()
+    // TODO : add an error handler
   }))
 
   Await.result(result, Duration.Inf)
@@ -43,7 +44,7 @@ object ProcessOutgoingFiles extends App {
     SepaFile(
       id = UUID.randomUUID(),
       name = fileName,
-      path = Path.of(s"src/main/scala/sepa/$fileName"),
+      path = Path.of(s"src/main/scala/sepa/sct/file/out/$fileName"),
       fileType = SepaFileType.SCT_OUT,
       status = SepaFileStatus.PROCESSING_IN_PROGRESS,
       receiptDate = Some(LocalDateTime.now()),

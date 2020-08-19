@@ -16,8 +16,13 @@ import scala.concurrent.duration.Duration
 import scala.util.Try
 import scala.xml.XML
 
+/** App to process incoming XML files
+ *
+ * Process all the files int the `filesToProcess` list
+ */
 object ProcessIncomingFilesActorSystem extends App {
 
+  // Creation of the actor system
   val config = ConfigFactory.parseString(
     s"""
       akka.remote.netty.tcp.port=0
@@ -26,11 +31,14 @@ object ProcessIncomingFilesActorSystem extends App {
   val system = ActorSystem.create(systemName, config)
   val processIncomingFileActor = system.actorOf(Props.create(classOf[ProcessIncomingFileActor]), "obp-api-request-actor")
 
+  // list of files that will be processed
   val filesToProcess = Seq[File](
     new File(s"src/main/scala/sepa/SEPA_SCT_IN_camt.029.001.03.xml")
   )
 
   filesToProcess.foreach(file => {
+
+    // File creation and insertion in the database
     val sepaFile = SepaFile(
       id = UUID.randomUUID(),
       name = file.getName,
@@ -45,6 +53,7 @@ object ProcessIncomingFilesActorSystem extends App {
     val xmlFile = XML.loadFile(file)
     val messageType = SepaMessageType.withName(xmlFile.namespace.split(":").last)
 
+    // We can then match on the file spacename and others attributes to determine the message type
     messageType match {
       case SepaMessageType.B2B_CREDIT_TRANSFER => processIncomingFileActor ! ProcessIncomingCreditTransferMessage(xmlFile, sepaFile)
       case SepaMessageType.B2B_PAYMENT_REJECT => processIncomingFileActor ! ProcessIncomingPaymentRejectMessage(xmlFile, sepaFile)
