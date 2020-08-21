@@ -2,11 +2,11 @@
 <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.02">
     <FIToFICstmrCdtTrf>
         <GrpHdr>
-            <MsgId>ae8za7e8zar56df4d5sg4ds5g6f7h8</MsgId>
-            <CreDtTm>2020-07-21T16:00:00.000+02:00</CreDtTm>
+            <MsgId>gfdsqg1d2sq3fd1s2q3fdqs</MsgId>
+            <CreDtTm>2020-08-20T16:00:00.000+02:00</CreDtTm>
             <NbOfTxs>1</NbOfTxs>
-            <TtlIntrBkSttlmAmt Ccy="EUR">978</TtlIntrBkSttlmAmt>
-            <IntrBkSttlmDt>2020-07-21</IntrBkSttlmDt>
+            <TtlIntrBkSttlmAmt Ccy="EUR">100</TtlIntrBkSttlmAmt>
+            <IntrBkSttlmDt>2020-08-21</IntrBkSttlmDt>
             <SttlmInf>
                 <SttlmMtd>CLRG</SttlmMtd>
             </SttlmInf>
@@ -18,10 +18,10 @@
         </GrpHdr>
         <CdtTrfTxInf>
             <PmtId>
-                <EndToEndId>nkuykuu9yk4u8y9rk7u9r8</EndToEndId>
-                <TxId>aa9aa99az8z8r78ezr79e988456fsd</TxId>
+                <EndToEndId>fdsqfd15qs6fdq4s5g6dsq</EndToEndId>
+                <TxId>fdsqf89dsq4gdqs6gd54sqg6</TxId>
             </PmtId>
-            <IntrBkSttlmAmt Ccy="EUR">12</IntrBkSttlmAmt>
+            <IntrBkSttlmAmt Ccy="EUR">100</IntrBkSttlmAmt>
             <ChrgBr>SLEV</ChrgBr>
             <Dbtr>
                 <Nm>Louis Dupont</Nm>
@@ -51,80 +51,6 @@
             </CdtrAcct>
             <RmtInf>
                 <Ustrd>A transaction message for example</Ustrd>
-            </RmtInf>
-        </CdtTrfTxInf>
-        <CdtTrfTxInf>
-            <PmtId>
-                <EndToEndId>qdzazazaez549efe8zf7ez8fe</EndToEndId>
-                <TxId>ezfekaejagprajegifegruigrheguriehgu</TxId>
-            </PmtId>
-            <IntrBkSttlmAmt Ccy="EUR">300</IntrBkSttlmAmt>
-            <ChrgBr>SLEV</ChrgBr>
-            <Dbtr>
-                <Nm>Arthur Millet</Nm>
-            </Dbtr>
-            <DbtrAcct>
-                <Id>
-                    <IBAN>FR7017569000407177664359U17</IBAN>
-                </Id>
-            </DbtrAcct>
-            <DbtrAgt>
-                <FinInstnId>
-                    <BIC>BNPAFRPP039</BIC>
-                </FinInstnId>
-            </DbtrAgt>
-            <CdtrAgt>
-                <FinInstnId>
-                    <BIC>OBPBDEB1XXX</BIC>
-                </FinInstnId>
-            </CdtrAgt>
-            <Cdtr>
-                <Nm>guillaume</Nm>
-            </Cdtr>
-            <CdtrAcct>
-                <Id>
-                    <IBAN>DE65500105176582659391</IBAN>
-                </Id>
-            </CdtrAcct>
-            <RmtInf>
-                <Ustrd>This is a 300 euros transaction description</Ustrd>
-            </RmtInf>
-        </CdtTrfTxInf>
-        <CdtTrfTxInf>
-            <PmtId>
-                <EndToEndId>48gf7hq6dfh4dfs56g7er89g</EndToEndId>
-                <TxId>a9ff59f4ed8g4re8h7fdhfdgfqdsd54565</TxId>
-            </PmtId>
-            <IntrBkSttlmAmt Ccy="EUR">666</IntrBkSttlmAmt>
-            <ChrgBr>SLEV</ChrgBr>
-            <Dbtr>
-                <Nm>Satan Evil</Nm>
-            </Dbtr>
-            <DbtrAcct>
-                <Id>
-                    <IBAN>NL65RABO1154012735</IBAN>
-                </Id>
-            </DbtrAcct>
-            <DbtrAgt>
-                <FinInstnId>
-                    <BIC>EVBKNLSTXXX</BIC>
-                </FinInstnId>
-            </DbtrAgt>
-            <CdtrAgt>
-                <FinInstnId>
-                    <BIC>OBPBDEB1XXX</BIC>
-                </FinInstnId>
-            </CdtrAgt>
-            <Cdtr>
-                <Nm>guillaume</Nm>
-            </Cdtr>
-            <CdtrAcct>
-                <Id>
-                    <IBAN>DE65500105176582659390</IBAN>
-                </Id>
-            </CdtrAcct>
-            <RmtInf>
-                <Ustrd>This is a bad transaction</Ustrd>
             </RmtInf>
         </CdtTrfTxInf>
     </FIToFICstmrCdtTrf>

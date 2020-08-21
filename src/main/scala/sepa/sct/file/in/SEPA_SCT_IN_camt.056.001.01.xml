@@ -26,13 +26,13 @@
             <TxInf>
                 <CxlId>7gdf8gf7ds9g8fdsbfd1sb6fds16</CxlId>
                 <OrgnlGrpInf>
-                    <OrgnlMsgId>ae8za7e8zar56df4d5sg4ds5g6f7h8</OrgnlMsgId>
+                    <OrgnlMsgId>gfdsqg1d2sq3fd1s2q3fdqs</OrgnlMsgId>
                     <OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
                 </OrgnlGrpInf>
-                <OrgnlEndToEndId>nkuykuu9yk4u8y9rk7u9r8</OrgnlEndToEndId>
-                <OrgnlTxId>aa9aa99az8z8r78ezr79e988456fsd</OrgnlTxId>
-                <OrgnlIntrBkSttlmAmt Ccy="EUR">12</OrgnlIntrBkSttlmAmt>
-                <OrgnlIntrBkSttlmDt>2020-07-21</OrgnlIntrBkSttlmDt>
+                <OrgnlEndToEndId>fdsqfd15qs6fdq4s5g6dsq</OrgnlEndToEndId>
+                <OrgnlTxId>fdsqf89dsq4gdqs6gd54sqg6</OrgnlTxId>
+                <OrgnlIntrBkSttlmAmt Ccy="EUR">100</OrgnlIntrBkSttlmAmt>
+                <OrgnlIntrBkSttlmDt>2020-08-21</OrgnlIntrBkSttlmDt>
                 <CxlRsnInf>
                     <Orgtr>
                         <Nm>Louis Dupont</Nm>

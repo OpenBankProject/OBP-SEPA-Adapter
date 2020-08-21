@@ -33,7 +33,7 @@ object ProcessIncomingFilesActorSystem extends App {
 
   // list of files that will be processed
   val filesToProcess = Seq[File](
-    new File(s"src/main/scala/sepa/SEPA_SCT_IN_camt.029.001.03.xml")
+    new File(s"src/main/scala/sepa/sct/file/in/SEPA_SCT_IN_camt.056.001.01.xml")
   )
 
   filesToProcess.foreach(file => {

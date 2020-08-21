@@ -2,25 +2,25 @@
 <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.004.001.02">
     <PmtRtr>
         <GrpHdr>
-            <MsgId>gregregregrezrghre</MsgId>
-            <CreDtTm>2020-07-06T16:18:32.077+02:00</CreDtTm>
+            <MsgId>gregregrdsf4546egrezrghre</MsgId>
+            <CreDtTm>2020-08-20T16:00:00.000+02:00</CreDtTm>
             <NbOfTxs>1</NbOfTxs>
-            <TtlRtrdIntrBkSttlmAmt Ccy="EUR">50</TtlRtrdIntrBkSttlmAmt>
-            <IntrBkSttlmDt>2020-07-07</IntrBkSttlmDt>
+            <TtlRtrdIntrBkSttlmAmt Ccy="EUR">100</TtlRtrdIntrBkSttlmAmt>
+            <IntrBkSttlmDt>2020-08-21</IntrBkSttlmDt>
             <SttlmInf>
                 <SttlmMtd>CLRG</SttlmMtd>
             </SttlmInf>
         </GrpHdr>
         <OrgnlGrpInf>
-            <OrgnlMsgId>71a3c56ed4a94bc5b9552ed22a6eb532</OrgnlMsgId>
+            <OrgnlMsgId>1ceebcd6d620482483e650ecf541ebb8</OrgnlMsgId>
             <OrgnlMsgNmId>pacs.008.001.02</OrgnlMsgNmId>
         </OrgnlGrpInf>
         <TxInf>
-            <RtrId>fkezopfjezofhezguregzyu</RtrId>
-            <OrgnlEndToEndId>24ab9e44579a49a9bec5a09288adf349</OrgnlEndToEndId>
-            <OrgnlTxId>24ab9e44579a49a9bec5a09288adf349</OrgnlTxId>
-            <OrgnlIntrBkSttlmAmt Ccy="EUR">50</OrgnlIntrBkSttlmAmt>
-            <RtrdIntrBkSttlmAmt Ccy="EUR">50</RtrdIntrBkSttlmAmt>
+            <RtrId>fds5f6dsbg45dd6d1qvg5f6bfd8bf955dq</RtrId>
+            <OrgnlEndToEndId>f51b8fb6d37d4298b397008df4bb0642</OrgnlEndToEndId>
+            <OrgnlTxId>f51b8fb6d37d4298b397008df4bb0642</OrgnlTxId>
+            <OrgnlIntrBkSttlmAmt Ccy="EUR">100</OrgnlIntrBkSttlmAmt>
+            <RtrdIntrBkSttlmAmt Ccy="EUR">100</RtrdIntrBkSttlmAmt>
             <ChrgBr>SLEV</ChrgBr>
             <RtrRsnInf>
                 <Orgtr>
@@ -36,7 +36,7 @@
             </RtrRsnInf>
             <OrgnlTxRef>
                 <RmtInf>
-                    <Ustrd>Test transaction description</Ustrd>
+                    <Ustrd>transaction description for 100€</Ustrd>
                 </RmtInf>
                 <Dbtr>
                     <Nm>guillaume</Nm>

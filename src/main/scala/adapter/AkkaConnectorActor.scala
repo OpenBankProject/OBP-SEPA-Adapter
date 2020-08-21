@@ -319,7 +319,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                 }
               case None => Future.failed(new Exception(s"originalRecallMessage linked with with SepaCreditTransferTransactionId(${originalCreditTransferTransaction.id}) not found"))
             }
-            newTransactionRequestStatus <- originalRecallMessageFile match {
+            newTransactionRequestStatus <- originalRecallMessageFile.fileType match {
               case SepaFileType.SCT_IN =>
                 for {
                   _ <- PaymentRecallNegativeAnswerMessage.sendRecallNegativeAnswer(
