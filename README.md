@@ -6,6 +6,81 @@ Open Bank Project SEPA Adpater
 
 This project is dual licensed under the AGPL V3 (see LICENSE) and commercial licenses from TESOBE GmbH.
 
+## GETTING STARTED
+
+- First, you'll need the forked version of the OBP-API working with the SEPA adapter :
+https://github.com/GuillaumeKergreis/OBP-API/tree/AddSepaAdapter.
+In the OBP-API props file (obp-api/src/main/resources/props/default.props), be sure to have these corresponding values :
+```
+connector=star
+starConnector_supported_types=mapped,akka
+transactionRequests_supported_types=SANDBOX_TAN,COUNTERPARTY,SEPA,ACCOUNT_OTP,ACCOUNT,REFUND
+akka_connector.hostname=127.0.0.1
+akka_connector.port=2662
+akka_connector.timeout=10
+SEPA_OTP_INSTRUCTION_TRANSPORT=DUMMY
+REFUND_OTP_INSTRUCTION_TRANSPORT=DUMMY
+implicitly_convert_ids=true
+```
+
+- In the BANKIDMAPPING table, add a row to map the BankId you are using with a BIC. For example :
+
+| ID | UPDATEDAT                     | CREATEDAT                     | MBANKPLAINTEXTREFERENCE | MBANKID             |
+|----| ----------------------------- | ----------------------------- | ----------------------- | ------------------- |
+| 1  | 2020-07-01 23:18:17.000000000 | 2020-07-01 23:18:20.000000000 | OBPBDEB1XXX             | THE_DEFAULT_BANK_ID |
+
+- Add the necessary methodRouting `makePaymentv210` and `notifyTransactionRequest` 
+to route them through the "akka_vDec2018" connector.
+You can do this by calling the OBP create method routing endpoint 
+`localhost:8080/obp/v4.0.0/management/method_routings` (POST) with the following body (example for makePaymentv210) :
+```
+{
+    "is_bank_id_exact_match": false,
+    "method_name": "makePaymentv210",
+    "connector_name": "akka_vDec2018",
+    "bank_id_pattern": ".*",
+    "parameters": []
+}
+```
+
+- In the SEPA Adapter application.conf file (src/main/ressources/application.conf) configure your postgreSQL Database,
+fill-in your OBP-API DirectLogin token and configure the akka properties if necessary.
+```
+databaseConfig = {
+  dataSourceClass = "org.postgresql.ds.PGSimpleDataSource"
+  properties = {
+    databaseName = "FILL_ME"
+    user = "FILL_ME"
+    password = "FILL_ME"
+  }
+  numThreads = 10
+}
+obp-api = {
+  authorization = {
+    direct-login-token = "FILL_ME"
+  }
+}
+```
+
+- Then, run the `DatabaseSchema.sql` (`src/main/scala/model/DatabaseSchema.sql`) to create the required database tables.
+
+- Now, you should be able to start the SEPA Adapter (`src/main/scala/adapter/Adapter.scala`)
+
+### Process outgoing files
+
+Once you have recorded some outgoing messages in your Adapter database (By using the OBP-API Transaction request endpoint) 
+yoy can create the outgoing files by running the ProcessOutgoingFiles executable (src/main/scala/sepa/scheduler/ProcessOutgoingFiles.scala).
+You'll find the generated files at the location `src/main/scala/sepa/sct/file/out`, don't forget to create the `out` folder.
+
+Demonstration video : [Send a credit transfer transaction](https://vimeo.com/440011547)
+
+### Process incoming files
+
+You can process incoming files by specifying the files to process in ProcessIncomingFilesActorSystem at
+src/main/scala/sepa/scheduler/ProcessIncomingFilesActorSystem.scala and running it.
+
+demonstration video : [Receive a credit transfer transaction](https://vimeo.com/440020466)
+
 ## PROJECT
 
 This SEPA adapter works with the OBP-API to provide a SEPA payment solution.
@@ -17,7 +92,6 @@ https://github.com/GuillaumeKergreis/OBP-API/tree/AddSepaAdapter.
 The features present in this branch will be gradually added to the OBP-API 
 so that ultimately the OBP-API will be fully compatible with the adapater.
 
-
 ### SEPA messages support
 
 Currently, only the Credit Transfer scheme is implemented.
@@ -28,8 +102,11 @@ Here is the differents messages supported by this application :
         - [Send a credit transfer transaction](https://vimeo.com/440011547)
         - [Receive a credit transfer transaction](https://vimeo.com/440020466)
     - PAYMENT RETURN (pacs.004.001.02)
+        - [Return a credit transfer transaction](https://vimeo.com/451053702)
     - PAYMENT REJECT (pacs.002.001.03)
     - PAYMENT RECALL (camt.056.001.01)
+        - [Send a payment recall](https://drive.google.com/file/d/1Ajssk6tiZiTaerz64EQd_pvJK2Qn8PK5/view?usp=sharing)
+        - [Receive a payment recall](https://drive.google.com/file/d/17n9U0RscXUh1lCs3Aynz_E4jyZ8bt0op/view?usp=sharing)
     - PAYMENT RECALL NEGATIVE ANSWER (camt.029.001.03)
     
 - Messages supported by the SEPA Adpater but not integrated with the OBP-API :
@@ -54,6 +131,7 @@ This allows the system to be fully transparent.
 Here are the connector methods used by the SEPA adapter : 
 - makePaymentv210
 - notifyTransactionRequest (Implemented in the OBP-API forked version)
+
 Those methods must be defined in the methods routings to be routed with the akka connector.
 So the OBP-API connector need to be set to `star` in the props file.
 
@@ -78,3 +156,10 @@ https://www.europeanpaymentscouncil.eu/sites/default/files/kb/file/2020-04/EPC12
 
 Technical documentation (Implementation guidelines) can be found here : 
 https://www.europeanpaymentscouncil.eu/sites/default/files/kb/file/2018-11/EPC115-06%20SCT%20Interbank%20IG%202019%20V1.0.pdf
+
+### Dependencies
+- Database : [PostgreSQL](https://www.postgresql.org)
+- Database mapper : [Slick](https://scala-slick.org)
+- Communication and HTTP requests : [Akka](https://akka.io)
+- XSD class generator : [scalaxb](http://scalaxb.org)
+- Json : [Circe](https://circe.github.io/circe)

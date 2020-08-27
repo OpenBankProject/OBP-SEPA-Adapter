@@ -8,6 +8,7 @@ import akka.http.scaladsl.model.headers.{Authorization, GenericHttpCredentials}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.util.ByteString
 import com.openbankproject.commons.model._
+import com.typesafe.config.ConfigFactory
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Json, JsonObject, parser}
@@ -65,7 +66,7 @@ object ObpApi {
       method = httpMethod,
       uri = uri,
       headers = Seq(
-        Authorization(GenericHttpCredentials("DirectLogin", "token=eyJhbGciOiJIUzI1NiJ9.eyIiOiIifQ.CeA_QUnsF4xBScAYy3ZtK64f7uE28nHbXSFoAlodUQM"))
+        Authorization(GenericHttpCredentials("DirectLogin", s"token=${ConfigFactory.load().getString("obp-api.authorization.direct-login-token")}"))
       ),
       entity = HttpEntity(
         contentType = ContentTypes.`application/json`,
