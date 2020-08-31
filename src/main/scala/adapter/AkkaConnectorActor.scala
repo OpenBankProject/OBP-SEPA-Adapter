@@ -48,15 +48,18 @@ class AkkaConnectorActor extends Actor with ActorLogging {
       )
       sender ! result
 
+    // Case we receive a makePaymentv210 message
     case OutBoundMakePaymentv210(callContext, fromAccount, toAccount, transactionRequestId, transactionRequestCommonBody, amount, description, transactionRequestType, chargePolicy) =>
       println("Make payment message received")
 
       val obpAkkaConnector = sender
 
+      // In the case the transaction request type is SEPA
       transactionRequestType.value match {
         case "SEPA" =>
           val creditTransferTransactionId = UUID.randomUUID()
 
+          // We create a new transaction on the Adapter side (only in memory at the moment)
           val creditTransferTransaction = SepaCreditTransferTransaction(
             id = creditTransferTransactionId,
             amount = amount,
@@ -81,6 +84,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
             customFields = None
           )
 
+          // we prepare the request body for the saveHistoricalTransaction api call
           val historicalTransactionJson = HistoricalTransactionJson(
             from = CustomerAccountReference(
               account_iban = creditTransferTransaction.debtorAccount.map(_.iban).getOrElse(""),
@@ -102,10 +106,14 @@ class AkkaConnectorActor extends Actor with ActorLogging {
             charge_policy = chargePolicy
           )
 
+          // We send the request to save the transaction in OBP-API
           ObpApi.saveHistoricalTransaction(historicalTransactionJson).map { createdObpTransactionId =>
+            // If it succeed, we save the transaction in the SEPA Adapter
             creditTransferTransaction.insert()
+            // We now look for the unprocessed credit transfer message
             val unprocessedCreditTransferMessage = SepaMessage.getUnprocessedByType(SepaMessageType.B2B_CREDIT_TRANSFER)
               .map(_.headOption.getOrElse {
+                // if we don't find one, we create a new message and save it into the Adapter database
                 val sepaMessageId = UUID.randomUUID()
                 val message = SepaMessage(
                   sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_CREDIT_TRANSFER,
@@ -122,12 +130,14 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                 message
               })
             unprocessedCreditTransferMessage.onComplete {
+              // We can now link the transaction with the credit transfer message
               case Success(message) => creditTransferTransaction.linkMessage(
                 sepaMessageId = message.id,
                 transactionStatusIdInSepaFile = creditTransferTransaction.transactionIdInSepaFile,
                 obpTransactionRequestId = Some(transactionRequestId),
                 obpTransactionId = Some(createdObpTransactionId)
               )
+                // We also update the message total amount and number of transactions
                 message.copy(
                   numberOfTransactions = message.numberOfTransactions + 1,
                   totalAmount = message.totalAmount + creditTransferTransaction.amount
@@ -135,6 +145,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               case Failure(exception) => log.error(exception.getMessage)
             }
 
+            // We send the inBound message to the OBP-API connector with the newly created transactionId in OBP
             val result = InBoundMakePaymentv210(
               inboundAdapterCallContext = InboundAdapterCallContext(
                 callContext.correlationId,
@@ -147,30 +158,42 @@ class AkkaConnectorActor extends Actor with ActorLogging {
             obpAkkaConnector ! result
           }
 
+        // In the case the transaction request type is "REFUND"
         case "REFUND" =>
+          // We parse the original OBP transaction Id from the description (Should be put in Transaction request attributes in the future)
           val originalObpTransactionId = TransactionId(description.split(" - ").reverse(1).split(Array('(', ')'))(1))
 
           val createdObpTransactionId = for {
+            // We retrieve the Adapter transaction from the obp original transaction Id
             originalTransaction <- SepaCreditTransferTransaction.getByObpTransactionId(originalObpTransactionId)
+            // We get the IBANs from the TransactionRequest and the original transaction to see if all is ok
             transactionRequestValid = (for {
               fromAccountIban <- fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
               toAccountIban <- toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
               originalTransactionDebtorIban <- originalTransaction.debtorAccount
               originalTransactionCreditorIban <- originalTransaction.creditorAccount
+            // If all is ok, the following condition should be true, otherwise, one IBAN is not corresponding to the original transaction
             } yield fromAccountIban == originalTransactionCreditorIban && toAccountIban == originalTransactionDebtorIban).getOrElse(false)
             createdObpTransactionId <- if (transactionRequestValid) {
+              // Here, we want to detect who of the debtor/creditor is the owner of an OBP Account
               // TODO : We can use the sepa file direction to detect which account to request to the API
               val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
               val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
+              // So one of the two following OBP request will fail and one will success (WARNING : this is not a good method to do this)
               val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
               val accountTo = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, toAccountIban)
 
-              accountFrom.flatMap(_ => { // Case where the account refund the counterparty
+              // In case the fromAccount is the OBP account owner and he want to refund the counterparty (SEPA Return message)
+              accountFrom.flatMap(_ => {
+                // We parse the return reason code from the description
                 val reasonCodeString = description.split(" - ").last.split(":").last.trim
                 val refundReasonCode: PaymentReturnReasonCode = reasonCodeString match {
+                  // In case the transaction request refund reason code was a recall reason code, the return reason code is FOLLOWING_CANCELLATION_REQUEST
                   case reasonCode if values.map(_.toString).contains(reasonCode) => PaymentReturnReasonCode.FOLLOWING_CANCELLATION_REQUEST
+                  // Else, we just parse the return reason code
                   case _ => PaymentReturnReasonCode.withName(reasonCodeString)
                 }
+                // We create the request body for the saveHistoricalTransaction api call
                 val historicalTransactionJson = HistoricalTransactionJson(
                   from = CustomerAccountReference(
                     account_iban = originalTransaction.creditorAccount.map(_.iban).getOrElse(""),
@@ -192,12 +215,17 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   charge_policy = chargePolicy
                 )
                 for {
+                  // We save the transaction in OBP and retrieve the created transactionId
                   createdObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
+                  // We can now create and save the return message and link it with the Adapter original transaction
                   _ <- PaymentReturnMessage.returnTransaction(
                     originalTransaction, originalTransaction.creditor.flatMap(_.name).orElse(originalTransaction.creditorAgent.map(_.bic)).getOrElse(""),
                     refundReasonCode, Some(transactionRequestId), Some(createdObpTransactionId))
                 } yield createdObpTransactionId
+
+                // In case the toAccount is the OBP account owner and the counterparty want to refund the account (SEPA Return message)
               }).fallbackTo(accountTo.flatMap(_ => { // Case where the counterparty refund the account
+                // We create the request body for the saveHistoricalTransaction api call
                 val historicalTransactionJson = HistoricalTransactionJson(
                   from = CounterpartyAccountReference(
                     counterparty_iban = originalTransaction.creditorAccount.map(_.iban).getOrElse(""),
@@ -219,6 +247,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   charge_policy = chargePolicy
                 )
                 for {
+                  // We save the transaction in OBP and retrieve the created transactionId
                   createdObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
                 } yield createdObpTransactionId
               }))
@@ -226,6 +255,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
           } yield createdObpTransactionId
 
+          // We then send the inBound message response to the OBP Connector with the created OBP TransactionId
           createdObpTransactionId.map(obpTransactionId => {
             val result = InBoundMakePaymentv210(
               inboundAdapterCallContext = InboundAdapterCallContext(
@@ -242,6 +272,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
           }
       }
 
+    // The adapter receive a notifyTransactionRequest message from the OBP-API connector
     case OutBoundNotifyTransactionRequest(callContext, fromAccount, toAccount, transactionRequest) =>
       println(s"Notify transaction request received : ${transactionRequest.id}")
       println(transactionRequest)
@@ -252,23 +283,31 @@ class AkkaConnectorActor extends Actor with ActorLogging {
       // Example : Recall request, Recall rejection
       // A recall is when an App account want to recover sended funds
       val newTransactionRequestStatus = (transactionRequest.`type`, TransactionRequestStatus.withName(transactionRequest.status)) match {
+        // if the transactionRequest type is REFUND and is initiated
         case ("REFUND", TransactionRequestStatus.INITIATED) =>
+          // We try to parse the recallReasonCode
           val maybePaymentRecallReasonCode = Try(withName(transactionRequest.body.description.split(" - ").last.split(":").last.trim)).toOption
           maybePaymentRecallReasonCode match {
+            // If we have a recall reason code
             case Some(paymentRecallReasonCode) =>
+              // We parse the original OBP transaction id in the description
               val originalObpTransactionId = TransactionId(transactionRequest.body.description.split(" - ").reverse(1).split(Array('(', ')'))(1))
               for {
                 originalTransaction <- SepaCreditTransferTransaction.getByObpTransactionId(originalObpTransactionId)
                 transactionRequestValid = (for {
+                  // We get the IBANs from the TransactionRequest and the original transaction to see if all is ok
                   fromAccountIban <- fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
                   toAccountIban <- toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
                   originalTransactionDebtorIban <- originalTransaction.debtorAccount
                   originalTransactionCreditorIban <- originalTransaction.creditorAccount
+                  // If all is ok, the following condition should be true, otherwise, one IBAN is not corresponding to the original transaction
                 } yield fromAccountIban == originalTransactionCreditorIban && toAccountIban == originalTransactionDebtorIban).getOrElse(false)
                 newTransactionRequestStatus <- if (transactionRequestValid) {
                   // TODO : We can use the sepa file direction to detect which account to request to the API
+                  // Here, we want to detect who of the debtor/creditor is the owner of an OBP Account
                   val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
                   val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
+                  // So one of the two following OBP request will fail and one will success (WARNING : this is not a good method to do this)
                   val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
                   val accountTo = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, toAccountIban)
 
@@ -286,8 +325,10 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                       case REQUESTED_BY_CUSTOMER | WRONG_AMOUNT | INVALID_CREDITOR_ACCOUNT_NUMBER =>
                         originalTransaction.debtor.flatMap(_.name).getOrElse(Adapter.BANK_BIC.bic)
                     }
+                    // we parse the additional information from the transaction request description
                     val additionalInformation = transactionRequest.body.description.split(" - ").reverse.drop(2).reverse.mkString(" - ")
                     for {
+                      // Then we recall the transaction (this method update the transaction, create a new message and link it with the original transaction)
                       _ <- PaymentRecallMessage.recallTransaction(originalTransaction, originator, paymentRecallReasonCode, Some(additionalInformation),
                         Some(transactionRequest.id))
                     } yield TransactionRequestStatus.FORWARDED
@@ -301,16 +342,22 @@ class AkkaConnectorActor extends Actor with ActorLogging {
             case _ => Future.successful(TransactionRequestStatus.INITIATED)
           }
 
+        // If the transaction request type is REFUND and the status is rejected
         case ("REFUND", TransactionRequestStatus.REJECTED) =>
+          // We parse the recall reject reason code from the description
           val paymentRecallNegativeAnswerReasonCode: PaymentRecallNegativeAnswerReasonCode =
             PaymentRecallNegativeAnswerReasonCode.withName(transactionRequest.body.description
               .split(" - Refund reject reason code : ").last.split(" ").head)
+          // We parse the recall reject additional information from the description
           val paymentRecallNegativeAnswerAditionalInformation = transactionRequest.body.description
             .split(" - Refund reject additional information : ").lastOption
           (for {
+            // we get the REFUND transaction Request
             originalCreditTransferTransaction <- SepaCreditTransferTransaction.getByObpTransactionRequestId(transactionRequest.id)
+            // we get the original recall message
             originalRecallMessage <- SepaMessage.getBySepaCreditTransferTransactionId(originalCreditTransferTransaction.id)
               .map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL))
+            // we get the original SEPA file
             originalRecallMessageFile <- originalRecallMessage match {
               case Some(recallMessage) =>
                 recallMessage.sepaFileId match {
@@ -320,6 +367,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               case None => Future.failed(new Exception(s"originalRecallMessage linked with with SepaCreditTransferTransactionId(${originalCreditTransferTransaction.id}) not found"))
             }
             newTransactionRequestStatus <- originalRecallMessageFile.fileType match {
+              // If the original SEPA file is an incoming one, the notifyTransactionRequest message is the result of
+              // a REJECT response to a received recall message, so in this case, we need to create the recallNegativeAnswer message
               case SepaFileType.SCT_IN =>
                 for {
                   _ <- PaymentRecallNegativeAnswerMessage.sendRecallNegativeAnswer(
@@ -338,6 +387,10 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   )
                 } yield TransactionRequestStatus.REJECTED
 
+              // If the origianl recall SEPA file is an outgoing one,
+              // it means that the REJECT message was generated by an incoming file
+              // So we don't need to do nothing here because the NotifyTransactionRequest message
+              // is the result of the SEPA Adapter after calling the answerTransactionRequestChallenge (REJECT) endpoint
               case SepaFileType.SCT_OUT => Future.successful(TransactionRequestStatus.REJECTED)
             }
           } yield newTransactionRequestStatus)

@@ -1,5 +1,8 @@
 package adapter
 
+/**
+ * Object imported from the SpringBoot SEPA adapter to get the last gitCommit (used in the getAdapter message)
+ */
 object APIUtil {
   def gitCommit: String = {
     try {

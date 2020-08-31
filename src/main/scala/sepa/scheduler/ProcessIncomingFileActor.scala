@@ -22,15 +22,10 @@ import scala.util.{Failure, Success, Try}
 import scala.xml.Elem
 
 case class ProcessIncomingCreditTransferMessage(xmlFile: Elem, sepaFile: SepaFile)
-
 case class ProcessIncomingPaymentReturnMessage(xmlFile: Elem, sepaFile: SepaFile)
-
 case class ProcessIncomingPaymentRejectMessage(xmlFile: Elem, sepaFile: SepaFile)
-
 case class ProcessIncomingPaymentRecallMessage(xmlFile: Elem, sepaFile: SepaFile)
-
 case class ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
-
 case class ProcessIncomingInquiryClaimNonReceiptMessage(xmlFile: Elem, sepaFile: SepaFile)
 case class ProcessIncomingInquiryClaimValueDateCorrectionMessage(xmlFile: Elem, sepaFile: SepaFile)
 case class ProcessIncomingInquiryClaimNonReceiptPositiveAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
@@ -45,10 +40,14 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
     case ProcessIncomingCreditTransferMessage(xmlFile, sepaFile) =>
       CreditTransferMessage.fromXML(xmlFile, sepaFile.id) match {
+        // If we receive a credit transfer transaction
         case Success(creditTransferMessage) =>
           for {
+            // We store the message and the transactions
             validTransactions <- preProcessSctMessageTransactions(creditTransferMessage)
+            // We update the transactions status
             _ <- Future.sequence(validTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.TO_TRANSFER).update()))
+            // We call the saveHistoricalTransaction endpoint to save each transaction in OBP
             integratedTransactions <- Future.sequence(validTransactions.map(transaction => {
               val historicalTransactionJson = HistoricalTransactionJson(
                 from = CounterpartyAccountReference(
@@ -76,6 +75,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                   _ <- transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFERED).update()
                 } yield ()
               ).recoverWith {
+                // if we don't find the account, we return the transaction to the originator
                 case e: ObpAccountNotFoundException =>
                   log.error(e.getMessage)
                   log.error(s"Credit transfer transaction ${transaction._1.id} returned")
@@ -86,6 +86,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
               }
             }
             ))
+            // we the update the message and the file status to PROCESSED
             _ <- creditTransferMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
             _ <- Future(log.info(s"${integratedTransactions.length} integrated transactions from file ${sepaFile.name}"))
@@ -100,25 +101,32 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
     case ProcessIncomingPaymentReturnMessage(xmlFile, sepaFile) =>
       PaymentReturnMessage.fromXML(xmlFile, sepaFile.id) match {
+        // If we receive a payment return message
         case Success(paymentReturnMessage) =>
           for {
+            // we get the original transaction
             validReturnedTransactions <- preProcessSctMessageTransactions(paymentReturnMessage)
             _ <- Future.sequence(validReturnedTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.RETURNED).update()))
             _ <- Future.sequence(validReturnedTransactions.map(transaction =>
               (transaction._1.customFields.flatMap(json =>
                 (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_REASON_CODE.toString).headOption.flatMap(_.asString)
                   .flatMap(reasonCode => Try(PaymentReturnReasonCode.withName(reasonCode)).toOption)) match {
+                // if the reason code is FOLLOWING_CANCELLATION_REQUEST, this is a return after a recall
                 case Some(PaymentReturnReasonCode.FOLLOWING_CANCELLATION_REQUEST) =>
                   (for {
+                    // we get the original recall message
                     recallMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transaction._1.id).map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL))
                     transactionMessageLink <- recallMessage match {
                       case Some(message) => SepaTransactionMessage.getBySepaCreditTransferTransactionIdAndSepaMessageId(transaction._1.id, message.id)
                       case None => Future.failed(new Exception(s"Original recall message of returned transaction ${transaction._1.id} not found"))
                     }
+                    // we get the accountID from the account IBAN
                     accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.debtorAccount.getOrElse(Iban("")))
+                    // we get the transaction Request challenge ID
                     challengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID,
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")))
                     transactionRequestChallengeAnswer = TransactionRequestChallengeAnswer(challengeId, "123")
+                    // we answer the challenge with a positive response (Dummy answer `123`) and we get the created transactionId
                     createdObpTransactionId <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, Adapter.VIEW_ID,
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")),
                       transactionRequestChallengeAnswer).flatMap {
@@ -133,6 +141,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                           obpTransactionId <- saveReturnedHistoricalTransaction(transaction._1)
                         } yield (None, obpTransactionId)
                     }
+                // In the other cases, we just call the OBP-API to save the transaction
                 case _ =>
                   for {
                     obpTransactionId <- saveReturnedHistoricalTransaction(transaction._1)
@@ -156,12 +165,13 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
     case ProcessIncomingPaymentRejectMessage(xmlFile, sepaFile) =>
       PaymentRejectMessage.fromXML(xmlFile, sepaFile.id) match {
+        // If we receive a reject message
         case Success(paymentRejectMessage) =>
           for {
+            // we save the message and get the original transaction
             validRejectedTransactions <- preProcessSctMessageTransactions(paymentRejectMessage)
             _ <- Future.sequence(validRejectedTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.REJECTED).update()))
-            _ <- Future.sequence(validRejectedTransactions.map(transaction =>
-              transaction._1.linkMessage(paymentRejectMessage.message.id, transaction._2, None, None)))
+            // we save the rejected transactions in OBP
             _ <- Future.sequence(validRejectedTransactions.map(transaction =>
               saveReturnedHistoricalTransaction(transaction._1).map(obpTransactionId =>
                 transaction._1.updateMessageLink(paymentRejectMessage.message.id, transaction._2, None, Some(obpTransactionId))
@@ -182,20 +192,25 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
     case ProcessIncomingPaymentRecallMessage(xmlFile: Elem, sepaFile: SepaFile) =>
       PaymentRecallMessage.fromXML(xmlFile, sepaFile.id) match {
+        // If we receive a recall message
         case Success(paymentRecallMessage) =>
           for {
+            // we save the message and get the original transaction reference
             validRecalledTransactions <- preProcessSctMessageTransactions(paymentRecallMessage)
             _ <- Future.sequence(validRecalledTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.RECALLED).update()))
             _ <- Future.sequence(validRecalledTransactions.map(transaction => {
               for {
+                // we get the original transaction message
                 originalSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transaction._1.id)
                   .map(_.find(_.messageType == SepaMessageType.B2B_CREDIT_TRANSFER))
+                // we get the transaction-message link
                 transactionMessageLink <- originalSepaMessage match {
                   case Some(creditTransferMesage) =>
                     SepaTransactionMessage.getBySepaCreditTransferTransactionIdAndSepaMessageId(
                       transaction._1.id, creditTransferMesage.id)
                   case None => Future.failed(new Exception(s"Original sepa credit transfer message linked with sepaCreditTransferTransactionId ${transaction._1.id} not found"))
                 }
+                // we create the transaction request REFUND body
                 refundTransactionRequest = RefundTransactionRequest(
                   from = Some(RefundTransactionRequestCounterpartyIban(transaction._1.debtorAccount.map(_.iban).getOrElse("")).asJson),
                   value = AmountOfMoney(
@@ -211,12 +226,15 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                       (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString)).getOrElse("")
                   ).asJson
                 )
+                // we get the accountId by IBAN
                 accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.creditorAccount.getOrElse(Iban("")))
+                // we create the transaction request REFUND
                 transactionRequestId <- ObpApi.createRefundTransactionRequest(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, refundTransactionRequest)
+                // we update the message link with the recall message by adding the transactionRequestId
                 _ <- transaction._1.updateMessageLink(paymentRecallMessage.message.id, transaction._2, Some(transactionRequestId), None)
               } yield ()
-            }
-            ))
+            }))
+            // we finish by updating the recall message and file status
             _ <- paymentRecallMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
           } yield ()
@@ -228,26 +246,34 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
     case ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile) =>
       PaymentRecallNegativeAnswerMessage.fromXML(xmlFile, sepaFile.id) match {
+        // If we receive a recall negative answer message
         case Success(paymentRecallNegativeAnswerMessage) =>
           for {
+            // we save the message and get the original transaction
             validRecallNegativeAnswerTransactions <- preProcessSctMessageTransactions(paymentRecallNegativeAnswerMessage)
             _ <- Future.sequence(validRecallNegativeAnswerTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.RECALL_REJECTED).update()))
             _ <- Future.sequence(validRecallNegativeAnswerTransactions.map(transaction => {
               for {
+                // we get the original recall message
                 originalRecallSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(transaction._1.id)
                   .map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL))
+                // we get the transaction message link
                 transactionRecallMessageLink <- originalRecallSepaMessage match {
                   case Some(creditTransferMesage) =>
                     SepaTransactionMessage.getBySepaCreditTransferTransactionIdAndSepaMessageId(
                       transaction._1.id, creditTransferMesage.id)
                   case None => Future.failed(new Exception(s"Original sepa recall message linked with sepaCreditTransferTransactionId ${transaction._1.id} not found"))
                 }
+                // we get the transaction request id
                 recallTransactionRequestId = transactionRecallMessageLink.obpTransactionRequestId.orNull
+                // we get the account id by IBAN
                 accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.debtorAccount.orNull)
+                // we get the transaction request challenge id
                 transactionRequestChallengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, recallTransactionRequestId)
                 recallRejectReasoninformation = transaction._1.customFields.flatMap(json =>
                   (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString)
                     .headOption.flatMap(_.asArray).flatMap(_.headOption))
+                // we create the answer transaction request (REJECT) body
                 transactionRequestChallengeAnswer = TransactionRequestChallengeAnswer(
                   id = transactionRequestChallengeId,
                   answer = "REJECT",
@@ -258,6 +284,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                     (j \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_ADDITIONAL_INFORMATION.toString)
                       .headOption.flatMap(_.asString))
                 )
+                // we reject the transaction request REFUND by answering the challenge
                 _ <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, recallTransactionRequestId, transactionRequestChallengeAnswer)
                 _ <- transaction._1.updateMessageLink(paymentRecallNegativeAnswerMessage.message.id, transaction._2, Some(recallTransactionRequestId), None)
               } yield ()
@@ -432,8 +459,10 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
     } yield TransactionId(returnedObpTransactionId.toString)
   }
 
+  /** This method pre-process messages by saving message and getting the original transaction reference if there is one
+   *
+   */
   def preProcessSctMessageTransactions(sctMessage: SctMessage[_]): Future[Seq[(SepaCreditTransferTransaction, String)]] = {
-    // TODO : add a cheching on messageType duplication for a transaction : If it's the case : reject the message
     for {
       _ <- checkMessageIdInSepaFileNotExist(sctMessage.message.messageIdInSepaFile)
       _ <- sctMessage.message.insert()
@@ -458,11 +487,13 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                 for {
                   _ <- updatedTransaction.update()
                 } yield (updatedTransaction, receivedTransaction._2)
-              }.fallbackTo {
-              log.warning(s"Received transaction with OriginalTransactionIdInSepaFile (${receivedTransaction._1.transactionIdInSepaFile}) received. But original transaction not found in the database. Transaction integrated with id (${receivedTransaction._1.id})")
-              for {
-                _ <- receivedTransaction._1.insert()
-              } yield (receivedTransaction._1, receivedTransaction._2)
+              }.recoverWith {
+              case exception: Exception =>
+                log.warning(exception.getMessage)
+                log.warning(s"Received transaction with OriginalTransactionIdInSepaFile (${receivedTransaction._1.transactionIdInSepaFile}) received. But original transaction not found in the database. Transaction integrated with id (${receivedTransaction._1.id})")
+                for {
+                  _ <- receivedTransaction._1.insert()
+                } yield (receivedTransaction._1, receivedTransaction._2)
             }
           }
         } yield validTransaction

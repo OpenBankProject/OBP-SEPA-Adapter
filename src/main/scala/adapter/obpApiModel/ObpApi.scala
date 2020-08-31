@@ -17,6 +17,9 @@ import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
+/**
+ * This object is used to make calls to the OBP-API
+ */
 object ObpApi {
 
   def saveHistoricalTransaction(historicalTransactionJson: HistoricalTransactionJson)(implicit context: ActorContext): Future[TransactionId] = {

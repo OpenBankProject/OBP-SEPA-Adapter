@@ -66,6 +66,10 @@ obp-api = {
 
 - Now, you should be able to start the SEPA Adapter (`src/main/scala/adapter/Adapter.scala`)
 
+- The OBP-API user connected to the SEPA Adapter need some necessary entitlements to work:
+    - `CanCreateHistoricalTransaction`
+    - `CanCreateAnyTransactionRequest`
+
 ### Process outgoing files
 
 Once you have recorded some outgoing messages in your Adapter database (By using the OBP-API Transaction request endpoint) 

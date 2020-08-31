@@ -15,8 +15,8 @@ import sepa.sct.generated._
 case class Party(
                   name: Option[String] = None,
                   postalAddress: Option[PostalAddress] = None,
-                  identification: Option[Either[PersonIdentification, OrganisationIdentification]] = None // TODO : check if we keep the Person / Org id in case of OTHER
-                  // TODO : replace the Either by an "iendtificationType" field : more comprehensible than Left/Right in Json
+                  identification: Option[Either[PersonIdentification, OrganisationIdentification]] = None
+                  // TODO : replace the Either by an "idendtificationType" field as in SettlementInformation : more comprehensible than Left/Right in Json
                 ) {
   def toJson: Json = this.asJson
 

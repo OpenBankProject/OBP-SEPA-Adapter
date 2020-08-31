@@ -4,6 +4,9 @@ import java.time.format.DateTimeFormatter
 
 import io.circe.Json
 
+/**
+ * this define the structure of the body for a POST request on the saveHistoricalTransactionEndpoint
+ */
 case class HistoricalTransactionJson(
                                       from: Json,
                                       to: Json,

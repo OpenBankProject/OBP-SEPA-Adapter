@@ -2,6 +2,9 @@ package adapter.obpApiModel
 
 import io.circe.Json
 
+/**
+ * This define the structure of the body for a POST request on the createTransactionRequest (REFUND) endpoint
+ */
 case class RefundTransactionRequest(
                                      from: Option[Json] = None,
                                      to: Option[Json] = None,

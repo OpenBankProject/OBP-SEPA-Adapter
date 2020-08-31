@@ -21,6 +21,9 @@ import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.PostgresProfile.api._
 import slickless._
 
+/** Object that contains the mapping between the mode and the database
+ *
+ */
 object Schema {
 
   val db = Database.forConfig("databaseConfig")
