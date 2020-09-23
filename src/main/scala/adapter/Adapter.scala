@@ -20,8 +20,8 @@ object Adapter extends App {
   // Information about the bank using the adapter
   // Those fields shouldn't be used, those information should be retrieved from the OBP-API
   // (for example by calling the getBank endpoint to get the BIC)
-  def BANK_ID = BankId("THE_DEFAULT_BANK_ID")
-  def BANK_BIC = Bic("OBPBDEB1XXX")
+  def BANK_ID = BankId(ConfigFactory.load().getString("sepa-adapter.bank-id"))
+  def BANK_BIC = Bic(ConfigFactory.load().getString("sepa-adapter.bank-bic"))
 
   // the VIE_ID to use when we call the OBP-API
   def VIEW_ID = ViewId("owner")

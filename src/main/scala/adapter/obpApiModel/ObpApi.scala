@@ -1,6 +1,6 @@
 package adapter.obpApiModel
 
-import adapter.ObpAccountNotFoundException
+import adapter.{ObpAccountNotFoundException, ObpBankNotFoundException}
 import akka.actor.ActorContext
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -12,6 +12,7 @@ import com.typesafe.config.ConfigFactory
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Json, JsonObject, parser}
+import model.types.Bic
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -22,9 +23,13 @@ import scala.concurrent.Future
  */
 object ObpApi {
 
+  val hostName = ConfigFactory.load.getString("obp-api.hostname")
+  val versionRoute = "/obp/v4.0.0"
+  val endpointPrefix = hostName + versionRoute
+
   def saveHistoricalTransaction(historicalTransactionJson: HistoricalTransactionJson)(implicit context: ActorContext): Future[TransactionId] = {
     val body = historicalTransactionJson.asJson.toString()
-    val callResult = callObpApi("http://localhost:8080/obp/v4.0.0/management/historical/transactions", HttpMethods.POST, body)
+    val callResult = callObpApi(s"$endpointPrefix/management/historical/transactions", HttpMethods.POST, body)
     callResult.map(println)
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "transaction_id").nonEmpty =>
@@ -45,7 +50,7 @@ object ObpApi {
   // Maybe the bankId and the viewId should be returned by this function
   def getAccountIdByIban(bankId: BankId, viewId: ViewId, iban: Iban)(implicit context: ActorContext): Future[AccountId] = {
     val body = JsonObject.fromMap(Map(("iban", iban.iban.asJson))).asJson.toString()
-    val callResult = callObpApi(s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${viewId.value}/account", HttpMethods.POST, body)
+    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${viewId.value}/account", HttpMethods.POST, body)
 
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
@@ -62,26 +67,29 @@ object ObpApi {
     }
   }
 
-  private def callObpApi(uri: String, httpMethod: HttpMethod, body: String)(implicit context: ActorContext): Future[Json] = {
-    implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
-
-    Http(context.system).singleRequest(HttpRequest(
-      method = httpMethod,
-      uri = uri,
-      headers = Seq(
-        Authorization(GenericHttpCredentials("DirectLogin", s"token=${ConfigFactory.load().getString("obp-api.authorization.direct-login-token")}"))
-      ),
-      entity = HttpEntity(
-        contentType = ContentTypes.`application/json`,
-        body
-      ))
-    ).flatMap(_.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(body => body.utf8String).flatMap(response =>
-      Future.fromTry(parser.parse(response).toTry)))
+  def getBicByBankId(bankId: BankId)(implicit context: ActorContext): Future[Bic] = {
+    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}", HttpMethods.GET)
+    callResult.flatMap {
+      case jsonResult if (jsonResult \\ "bank_routings").headOption.flatMap(_.asArray)
+          .flatMap(_.find(bankRouting => (bankRouting \\ "scheme").headOption.flatMap(_.asString).contains("BIC"))).nonEmpty =>
+        Future.successful((jsonResult \\ "bank_routings").headOption.flatMap(_.asArray)
+          .flatMap(_.find(bankRouting => (bankRouting \\ "scheme").headOption.flatMap(_.asString).contains("BIC"))
+            .flatMap(bankBicRouting => (bankBicRouting \\ "address").headOption.flatMap(_.asString))).map(Bic).get)
+      case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
+        val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
+        val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)
+        (errorCode, errorMessage.flatMap(_.split(":").headOption)) match {
+          case (Some(404), Some("OBP-30001")) =>
+            Future.failed(new ObpBankNotFoundException(errorMessage.getOrElse("")))
+          case _ => Future.failed(new Exception(s"Unknow error in getBicByBankId: ${errorMessage.getOrElse("")}"))
+        }
+      case jsonResult => Future.failed(new Exception(s"Unknow error in getBicByBankId: $jsonResult"))
+    }
   }
 
   def createRefundTransactionRequest(bankId: BankId, accountId: AccountId, viewId: ViewId, refundTransactionRequest: RefundTransactionRequest)(implicit context: ActorContext): Future[TransactionRequestId] = {
     val body = refundTransactionRequest.asJson.toString()
-    val callResult = callObpApi(s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests", HttpMethods.POST, body)
+    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests", HttpMethods.POST, body)
     callResult.map(println)
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
@@ -97,7 +105,7 @@ object ObpApi {
   }
 
   def getTransactionRequestChallengeId(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId)(implicit context: ActorContext): Future[String] = {
-    val callResult = callObpApi(s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-requests/${transactionRequestId.value}", HttpMethods.GET, "")
+    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-requests/${transactionRequestId.value}", HttpMethods.GET)
     callResult.map(println)
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "challenge").headOption.flatMap(challenge => (challenge \\ "id").headOption.flatMap(_.asString)).isDefined =>
@@ -114,7 +122,7 @@ object ObpApi {
 
   def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId, transactionRequestChallengeAnswer: TransactionRequestChallengeAnswer)(implicit context: ActorContext): Future[Option[TransactionId]] = {
     val body = transactionRequestChallengeAnswer.asJson.toString()
-    val callResult = callObpApi(s"http://localhost:8080/obp/v4.0.0/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests/${transactionRequestId.value}/challenge", HttpMethods.POST, body)
+    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests/${transactionRequestId.value}/challenge", HttpMethods.POST, body)
     callResult.map(println)
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
@@ -128,5 +136,22 @@ object ObpApi {
         }
       case jsonResult => Future.failed(new Exception(s"Unknow error in answerTransactionRequestChallenge: $jsonResult"))
     }
+  }
+
+  private def callObpApi(uri: String, httpMethod: HttpMethod, body: String = "")(implicit context: ActorContext): Future[Json] = {
+    implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
+
+    Http(context.system).singleRequest(HttpRequest(
+      method = httpMethod,
+      uri = uri,
+      headers = Seq(
+        Authorization(GenericHttpCredentials("DirectLogin", s"token=${ConfigFactory.load().getString("obp-api.authorization.direct-login-token")}"))
+      ),
+      entity = HttpEntity(
+        contentType = ContentTypes.`application/json`,
+        body
+      ))
+    ).flatMap(_.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(body => body.utf8String).flatMap(response =>
+      Future.fromTry(parser.parse(response).toTry)))
   }
 }
