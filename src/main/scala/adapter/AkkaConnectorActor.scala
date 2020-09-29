@@ -3,7 +3,7 @@ package adapter
 import java.time.{LocalDate, LocalDateTime, ZoneId, ZoneOffset}
 import java.util.{Date, UUID}
 
-import adapter.obpApiModel.{CounterpartyAccountReference, CustomerAccountReference, HistoricalTransactionJson, ObpApi}
+import adapter.obpApiModel.{CounterpartyAccountReference, CustomerAccountReference, HistoricalTransactionAccountJsonV310, HistoricalTransactionJson, ObpApi}
 import akka.actor.{Actor, ActorLogging}
 import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
@@ -92,30 +92,35 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               customFields = None
             )
 
-            // we prepare the request body for the saveHistoricalTransaction api call
-            historicalTransactionJson = HistoricalTransactionJson(
-              from = CustomerAccountReference(
-                account_iban = creditTransferTransaction.debtorAccount.map(_.iban).getOrElse(""),
-                bank_bic = creditTransferTransaction.debtorAgent.map(_.bic)
-              ).asJson,
-              to = CounterpartyAccountReference(
-                counterparty_iban = creditTransferTransaction.creditorAccount.map(_.iban).getOrElse(""),
-                bank_bic = creditTransferTransaction.creditorAgent.map(_.bic),
-                counterparty_name = creditTransferTransaction.creditor.flatMap(_.name)
-              ).asJson,
-              value = AmountOfMoney(
-                currency = transactionRequestCommonBody.value.currency,
-                amount = creditTransferTransaction.amount.toString
-              ).asJson,
-              description = creditTransferTransaction.description.getOrElse(""),
-              posted = creditTransferTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-              completed = creditTransferTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-              `type` = transactionRequestType.value,
-              charge_policy = chargePolicy
+            debtor = HistoricalTransactionAccountJsonV310(
+              bank_id = Some(fromAccount.bankId.value),
+              account_id = Some(fromAccount.accountId.value),
+              counterparty_id = None
+            )
+
+            creditor <- ObpApi.getOrCreateCounterparty(
+              bankId = fromAccount.bankId,
+              accountId = fromAccount.accountId,
+              name = toAccount.accountHolder,
+              iban = Iban(creditTransferTransaction.creditorAccount.map(_.iban).getOrElse("")),
+              bic = toAccountBic
+            ).map(counterparty =>
+              HistoricalTransactionAccountJsonV310(
+                bank_id = None,
+                account_id = None,
+                counterparty_id = Some(counterparty.counterparty_id)
+              )
             )
 
             // We send the request to save the transaction in OBP-API
-            createdObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
+            createdObpTransaction <- ObpApi.saveHistoricalTransaction(
+              debtor = debtor,
+              creditor = creditor,
+              amount = creditTransferTransaction.amount,
+              description = creditTransferTransaction.description.getOrElse("")
+            )
+
+            createdObpTransactionId = TransactionId(createdObpTransaction.transaction_id)
 
             // If it succeed, we save the transaction in the SEPA Adapter
             _ <- creditTransferTransaction.insert()
@@ -210,7 +215,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               val accountTo = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, toAccountIban)
 
               // In case the fromAccount is the OBP account owner and he want to refund the counterparty (SEPA Return message)
-              accountFrom.flatMap(_ => {
+              accountFrom.flatMap(obpAccountFrom => {
                 // We parse the return reason code from the description
                 val reasonCodeString = description.split(" - ").last.split(":").last.trim
                 val refundReasonCode: PaymentReturnReasonCode = reasonCodeString match {
@@ -219,30 +224,38 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   // Else, we just parse the return reason code
                   case _ => PaymentReturnReasonCode.withName(reasonCodeString)
                 }
-                // We create the request body for the saveHistoricalTransaction api call
-                val historicalTransactionJson = HistoricalTransactionJson(
-                  from = CustomerAccountReference(
-                    account_iban = originalTransaction.creditorAccount.map(_.iban).getOrElse(""),
-                    bank_bic = originalTransaction.creditorAgent.map(_.bic)
-                  ).asJson,
-                  to = CounterpartyAccountReference(
-                    counterparty_iban = originalTransaction.debtorAccount.map(_.iban).getOrElse(""),
-                    bank_bic = originalTransaction.debtorAgent.map(_.bic),
-                    counterparty_name = originalTransaction.debtor.flatMap(_.name)
-                  ).asJson,
-                  value = AmountOfMoney(
-                    currency = "EUR",
-                    amount = originalTransaction.amount.toString
-                  ).asJson,
-                  description = description,
-                  posted = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                  completed = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                  `type` = transactionRequestType.value,
-                  charge_policy = chargePolicy
+
+                val debtor = HistoricalTransactionAccountJsonV310(
+                  bank_id = Some(Adapter.BANK_ID.value),
+                  account_id = Some(obpAccountFrom.value),
+                  counterparty_id = None
                 )
+
                 for {
-                  // We save the transaction in OBP and retrieve the created transactionId
-                  createdObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
+                  creditor <- ObpApi.getOrCreateCounterparty(
+                    bankId = Adapter.BANK_ID,
+                    accountId = debtor.account_id.map(AccountId(_)).get,
+                    name = originalTransaction.debtor.flatMap(_.name).getOrElse(""),
+                    iban = Iban(originalTransaction.debtorAccount.map(_.iban).getOrElse("")),
+                    bic = Bic(originalTransaction.debtorAgent.map(_.bic).getOrElse(""))
+                  ).map(counterparty =>
+                    HistoricalTransactionAccountJsonV310(
+                      bank_id = None,
+                      account_id = None,
+                      counterparty_id = Some(counterparty.counterparty_id)
+                    )
+                  )
+
+                  // We send the request to save the transaction in OBP-API
+                  createdObpTransaction <- ObpApi.saveHistoricalTransaction(
+                    debtor = debtor,
+                    creditor = creditor,
+                    amount = originalTransaction.amount,
+                    description = description
+                  )
+
+                  createdObpTransactionId = TransactionId(createdObpTransaction.transaction_id)
+
                   // We can now create and save the return message and link it with the Adapter original transaction
                   _ <- PaymentReturnMessage.returnTransaction(
                     originalTransaction, originalTransaction.creditor.flatMap(_.name).orElse(originalTransaction.creditorAgent.map(_.bic)).getOrElse(""),
@@ -250,31 +263,38 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                 } yield createdObpTransactionId
 
                 // In case the toAccount is the OBP account owner and the counterparty want to refund the account (SEPA Return message)
-              }).fallbackTo(accountTo.flatMap(_ => { // Case where the counterparty refund the account
-                // We create the request body for the saveHistoricalTransaction api call
-                val historicalTransactionJson = HistoricalTransactionJson(
-                  from = CounterpartyAccountReference(
-                    counterparty_iban = originalTransaction.creditorAccount.map(_.iban).getOrElse(""),
-                    bank_bic = originalTransaction.creditorAgent.map(_.bic),
-                    counterparty_name = originalTransaction.creditor.flatMap(_.name)
-                  ).asJson,
-                  to = CustomerAccountReference(
-                    account_iban = originalTransaction.debtorAccount.map(_.iban).getOrElse(""),
-                    bank_bic = originalTransaction.debtorAgent.map(_.bic)
-                  ).asJson,
-                  value = AmountOfMoney(
-                    currency = "EUR",
-                    amount = originalTransaction.amount.toString
-                  ).asJson,
-                  description = description,
-                  posted = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                  completed = originalTransaction.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                  `type` = transactionRequestType.value,
-                  charge_policy = chargePolicy
+              }).fallbackTo(accountTo.flatMap(obpAccountTo => { // Case where the counterparty refund the account
+
+                val creditor = HistoricalTransactionAccountJsonV310(
+                  bank_id = Some(Adapter.BANK_ID.value),
+                  account_id = Some(obpAccountTo.value),
+                  counterparty_id = None
                 )
+
                 for {
-                  // We save the transaction in OBP and retrieve the created transactionId
-                  createdObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
+                  debtor <- ObpApi.getOrCreateCounterparty(
+                    bankId = Adapter.BANK_ID,
+                    accountId = creditor.account_id.map(AccountId(_)).get,
+                    name = originalTransaction.creditor.flatMap(_.name).getOrElse(""),
+                    iban = Iban(originalTransaction.creditorAccount.map(_.iban).getOrElse("")),
+                    bic = Bic(originalTransaction.creditorAgent.map(_.bic).getOrElse(""))
+                  ).map(counterparty =>
+                    HistoricalTransactionAccountJsonV310(
+                      bank_id = None,
+                      account_id = None,
+                      counterparty_id = Some(counterparty.counterparty_id)
+                    )
+                  )
+
+                  // We send the request to save the transaction in OBP-API
+                  createdObpTransaction <- ObpApi.saveHistoricalTransaction(
+                    debtor = debtor,
+                    creditor = creditor,
+                    amount = originalTransaction.amount,
+                    description = description
+                  )
+
+                  createdObpTransactionId = TransactionId(createdObpTransaction.transaction_id)
                 } yield createdObpTransactionId
               }))
             } else Future.failed(new Exception(s"Transaction request invalid, counterparty_iban don't match with the original SEPA transaction ${originalTransaction.id} (OBP original transaction : ${originalObpTransactionId.value}). Maybe the errror is coming from the to/from field name"))

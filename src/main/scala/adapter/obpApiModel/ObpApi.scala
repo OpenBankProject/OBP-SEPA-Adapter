@@ -1,5 +1,8 @@
 package adapter.obpApiModel
 
+import java.time.{Instant, LocalDateTime}
+import java.util.Date
+
 import adapter.{ObpAccountNotFoundException, ObpBankNotFoundException}
 import akka.actor.ActorContext
 import akka.http.scaladsl.Http
@@ -11,7 +14,7 @@ import com.openbankproject.commons.model._
 import com.typesafe.config.ConfigFactory
 import io.circe.generic.auto._
 import io.circe.syntax._
-import io.circe.{Json, JsonObject, parser}
+import io.circe.{Decoder, Json, JsonObject, parser}
 import model.types.Bic
 
 import scala.collection.immutable.Seq
@@ -21,30 +24,36 @@ import scala.concurrent.Future
 /**
  * This object is used to make calls to the OBP-API
  */
+
+// TODO : refactor endpoints with extract method like in `getCounterpartyByIban`
 object ObpApi {
 
-  val hostName = ConfigFactory.load.getString("obp-api.hostname")
+  val hostName: String = ConfigFactory.load.getString("obp-api.hostname")
   val versionRoute = "/obp/v4.0.0"
-  val endpointPrefix = hostName + versionRoute
+  val endpointPrefix: String = hostName + versionRoute
 
-  def saveHistoricalTransaction(historicalTransactionJson: HistoricalTransactionJson)(implicit context: ActorContext): Future[TransactionId] = {
-    val body = historicalTransactionJson.asJson.toString()
-    val callResult = callObpApi(s"$endpointPrefix/management/historical/transactions", HttpMethods.POST, body)
-    callResult.map(println)
-    callResult.flatMap {
-      case jsonResult if (jsonResult \\ "transaction_id").nonEmpty =>
-        Future.successful(TransactionId((jsonResult \\ "transaction_id").headOption.flatMap(_.asString).get))
-      case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
-        val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
-        val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)
-        (errorCode, errorMessage.flatMap(_.split(":").headOption)) match {
-          case (Some(404), Some("OBP-30018")) =>
-            Future.failed(new ObpAccountNotFoundException(errorMessage.getOrElse("")))
-          case _ =>
-            Future.failed(new Exception(s"Unknow error in saveHistoricalTransaction: ${errorMessage.getOrElse("")}"))
-        }
-      case jsonResult => Future.failed(new Exception(s"Unknow error in saveHistoricalTransaction: $jsonResult"))
-    }
+  implicit val decodeDate: Decoder[Date] = Decoder.decodeString.map(dateString =>
+    Date.from(Instant.parse(dateString))
+  )
+
+  def saveHistoricalTransaction(debtor: HistoricalTransactionAccountJsonV310, creditor: HistoricalTransactionAccountJsonV310, amount: BigDecimal, description: String)(implicit context: ActorContext): Future[PostHistoricalTransactionResponseJson] = {
+    val dateTimeNow = LocalDateTime.now().format(PostHistoricalTransactionJson.jsonDateTimeFormatter)
+    val historicalTransaction = PostHistoricalTransactionJson(
+      from = debtor,
+      to = creditor,
+      value = AmountOfMoneyJsonV121(
+        currency = "EUR",
+        amount = amount.toString()
+      ),
+      description = description,
+      posted = dateTimeNow,
+      completed = dateTimeNow,
+      `type` = "SEPA",
+      charge_policy = "SHARED"
+    )
+    
+    callObpApi(s"$endpointPrefix/management/historical/transactions", HttpMethods.POST, historicalTransaction.asJson.toString())
+      .flatMap(json => Future.fromTry(json.as[PostHistoricalTransactionResponseJson].toTry))
   }
 
   // Maybe the bankId and the viewId should be returned by this function
@@ -71,7 +80,7 @@ object ObpApi {
     val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}", HttpMethods.GET)
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "bank_routings").headOption.flatMap(_.asArray)
-          .flatMap(_.find(bankRouting => (bankRouting \\ "scheme").headOption.flatMap(_.asString).contains("BIC"))).nonEmpty =>
+        .flatMap(_.find(bankRouting => (bankRouting \\ "scheme").headOption.flatMap(_.asString).contains("BIC"))).nonEmpty =>
         Future.successful((jsonResult \\ "bank_routings").headOption.flatMap(_.asArray)
           .flatMap(_.find(bankRouting => (bankRouting \\ "scheme").headOption.flatMap(_.asString).contains("BIC"))
             .flatMap(bankBicRouting => (bankBicRouting \\ "address").headOption.flatMap(_.asString))).map(Bic).get)
@@ -86,6 +95,45 @@ object ObpApi {
       case jsonResult => Future.failed(new Exception(s"Unknow error in getBicByBankId: $jsonResult"))
     }
   }
+
+  def getCounterpartyByIban(bankId: BankId, accountId: AccountId, iban: Iban)(implicit context: ActorContext): Future[Option[CounterpartyJson400]] =
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/counterparties", HttpMethods.GET)
+      .flatMap(json => Future.fromTry(json.as[CounterpartiesJson400].toTry))
+      .map(counterparties =>
+        counterparties.counterparties.find(counterparty =>
+          counterparty.other_account_secondary_routing_scheme == "IBAN" && counterparty.other_account_secondary_routing_address == iban.iban)
+      )
+
+  def createCounterparty(bankId: BankId, accountId: AccountId, name: String, iban: Iban, bic: Bic)(implicit context: ActorContext): Future[CounterpartyWithMetadataJson400] = {
+    val counterparty = PostCounterpartyJson400(
+      name = name,
+      description = "Counterparty added automatically by SEPA Adapter",
+      currency = "EUR",
+      other_account_routing_scheme = "",
+      other_account_routing_address = "",
+      other_account_secondary_routing_scheme = "IBAN",
+      other_account_secondary_routing_address = iban.iban,
+      other_bank_routing_scheme = "BIC",
+      other_bank_routing_address = bic.bic,
+      other_branch_routing_scheme = "",
+      other_branch_routing_address = "",
+      is_beneficiary = true,
+      bespoke = Nil
+    )
+    
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/counterparties",
+      HttpMethods.POST, counterparty.asJson.toString())
+      .flatMap(json => Future.fromTry(json.as[CounterpartyWithMetadataJson400].toTry))
+  }
+
+  def getOrCreateCounterparty(bankId: BankId, accountId: AccountId, name: String, iban: Iban, bic: Bic)(implicit context: ActorContext): Future[CounterpartyJson400] =
+    for {
+      maybeCounterparty <- getCounterpartyByIban(bankId, accountId, iban)
+      counterparty <- maybeCounterparty match {
+        case Some(counterparty) => Future.successful(counterparty)
+        case None => createCounterparty(bankId, accountId, name, iban, bic).map(CounterpartyJson400.fromCounterpartyWithMetadataJson400)
+      }
+    } yield counterparty
 
   def createRefundTransactionRequest(bankId: BankId, accountId: AccountId, viewId: ViewId, refundTransactionRequest: RefundTransactionRequest)(implicit context: ActorContext): Future[TransactionRequestId] = {
     val body = refundTransactionRequest.asJson.toString()

@@ -6,13 +6,14 @@ import java.time.{LocalDateTime, ZoneId, ZoneOffset}
 import adapter.obpApiModel._
 import adapter.{Adapter, ObpAccountNotFoundException}
 import akka.actor.{Actor, ActorLogging}
-import com.openbankproject.commons.model.{AmountOfMoney, Iban, TransactionId, TransactionRequestId}
+import com.openbankproject.commons.model.{AccountId, AmountOfMoney, Iban, TransactionId, TransactionRequestId}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Json, JsonObject}
 import model.enums.SepaMessageType.{B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPONSE, B2B_INQUIRY_CLAIM_NON_RECEIP_POSITIVE_RESPONSE, B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEGATIVE_RESPONSE, B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE}
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode
+import model.types.Bic
 import model.{SepaCreditTransferTransaction, SepaFile, SepaMessage, SepaTransactionMessage}
 import sepa.sct.message.{SctMessage, _}
 
@@ -49,32 +50,48 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             _ <- Future.sequence(validTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.TO_TRANSFER).update()))
             // We call the saveHistoricalTransaction endpoint to save each transaction in OBP
             integratedTransactions <- Future.sequence(validTransactions.map(transaction => {
-              val historicalTransactionJson = HistoricalTransactionJson(
-                from = CounterpartyAccountReference(
-                  counterparty_iban = transaction._1.debtorAccount.map(_.iban).getOrElse(""),
-                  bank_bic = transaction._1.debtorAgent.map(_.bic),
-                  counterparty_name = transaction._1.debtor.flatMap(_.name)
-                ).asJson,
-                to = CustomerAccountReference(
-                  account_iban = transaction._1.creditorAccount.map(_.iban).getOrElse(""),
-                  bank_bic = transaction._1.creditorAgent.map(_.bic)
-                ).asJson,
-                value = AmountOfMoney(
-                  currency = "EUR",
-                  amount = transaction._1.amount.toString
-                ).asJson,
-                description = transaction._1.description.getOrElse(""),
-                posted = transaction._1.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                completed = transaction._1.creationDateTime.atZone(ZoneId.of("Europe/Paris")).withZoneSameInstant(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-                `type` = "SEPA",
-                charge_policy = "SHARED"
-              )
-              ObpApi.saveHistoricalTransaction(historicalTransactionJson).flatMap(obpTransactionId =>
-                for {
-                  _ <- transaction._1.updateMessageLink(creditTransferMessage.message.id, transaction._1.transactionIdInSepaFile, None, Some(obpTransactionId))
-                  _ <- transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFERED).update()
-                } yield ()
-              ).recoverWith {
+              (for {
+
+                creditor <- ObpApi.getAccountIdByIban(
+                  bankId = Adapter.BANK_ID,
+                  viewId = Adapter.VIEW_ID,
+                  iban = Iban(transaction._1.creditorAccount.map(_.iban).getOrElse(""))
+                ).map(accountId =>
+                  HistoricalTransactionAccountJsonV310(
+                    bank_id = Some(Adapter.BANK_ID.value),
+                    account_id = Some(accountId.value),
+                    counterparty_id = None
+                  )
+                )
+
+                debtor <- ObpApi.getOrCreateCounterparty(
+                  bankId = Adapter.BANK_ID,
+                  accountId = AccountId(creditor.account_id.get),
+                  name = transaction._1.debtor.flatMap(_.name).getOrElse(""),
+                  iban = Iban(transaction._1.debtorAccount.map(_.iban).getOrElse("")),
+                  bic = Bic(transaction._1.debtorAgent.map(_.bic).getOrElse(""))
+                ).map(counterparty =>
+                  HistoricalTransactionAccountJsonV310(
+                    bank_id = None,
+                    account_id = None,
+                    counterparty_id = Some(counterparty.counterparty_id)
+                  )
+                )
+
+                obpTransaction <- ObpApi.saveHistoricalTransaction(
+                  debtor = debtor,
+                  creditor = creditor,
+                  amount = transaction._1.amount,
+                  description = transaction._1.description.getOrElse("")
+                )
+
+                obpTransactionId = TransactionId(obpTransaction.transaction_id)
+
+                _ <- transaction._1.updateMessageLink(creditTransferMessage.message.id, transaction._1.transactionIdInSepaFile, None, Some(obpTransactionId))
+                _ <- transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFERED).update()
+
+              } yield ())
+                .recoverWith {
                 // if we don't find the account, we return the transaction to the originator
                 case e: ObpAccountNotFoundException =>
                   log.error(e.getMessage)
@@ -435,28 +452,43 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
       }
       returnReasonCode = transaction.customFields.flatMap(json =>
         (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_REASON_CODE.toString).headOption.flatMap(_.asString))
-      historicalTransactionJson = HistoricalTransactionJson(
-        from = CounterpartyAccountReference(
-          counterparty_iban = transaction.creditorAccount.map(_.iban).getOrElse(""),
-          bank_bic = transaction.creditorAgent.map(_.bic),
-          counterparty_name = transaction.creditor.flatMap(_.name)
-        ).asJson,
-        to = CustomerAccountReference(
-          account_iban = transaction.debtorAccount.map(_.iban).getOrElse(""),
-          bank_bic = transaction.debtorAgent.map(_.bic)
-        ).asJson,
-        value = AmountOfMoney(
-          currency = "EUR",
-          amount = transaction.amount.toString
-        ).asJson,
-        description = s"Refund for transaction_id: (${originalObpTransactionId.map(_.value).getOrElse("")}) from ${transaction.creditor.flatMap(_.name).getOrElse("")} - Reason code : ${returnReasonCode.getOrElse("")}",
-        posted = LocalDateTime.now(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-        completed = LocalDateTime.now(ZoneOffset.UTC).format(HistoricalTransactionJson.jsonDateTimeFormatter),
-        `type` = "REFUND",
-        charge_policy = "SHARED"
+
+      creditor <- ObpApi.getAccountIdByIban(
+        bankId = Adapter.BANK_ID,
+        viewId = Adapter.VIEW_ID,
+        iban = Iban(transaction.debtorAccount.map(_.iban).getOrElse(""))
+      ).map(accountId =>
+        HistoricalTransactionAccountJsonV310(
+          bank_id = Some(Adapter.BANK_ID.value),
+          account_id = Some(accountId.value),
+          counterparty_id = None
+        )
       )
-      returnedObpTransactionId <- ObpApi.saveHistoricalTransaction(historicalTransactionJson)
-    } yield TransactionId(returnedObpTransactionId.toString)
+
+      debtor <- ObpApi.getOrCreateCounterparty(
+        bankId = Adapter.BANK_ID,
+        accountId = AccountId(creditor.account_id.get),
+        name = transaction.debtor.flatMap(_.name).getOrElse(""),
+        iban = Iban(transaction.debtorAccount.map(_.iban).getOrElse("")),
+        bic = Bic(transaction.debtorAgent.map(_.bic).getOrElse(""))
+      ).map(counterparty =>
+        HistoricalTransactionAccountJsonV310(
+          bank_id = None,
+          account_id = None,
+          counterparty_id = Some(counterparty.counterparty_id)
+        )
+      )
+
+      returnedObpTransaction <- ObpApi.saveHistoricalTransaction(
+        debtor = debtor,
+        creditor = creditor,
+        amount = transaction.amount,
+        description = s"Refund for transaction_id: (${originalObpTransactionId.map(_.value).getOrElse("")}) from ${transaction.creditor.flatMap(_.name).getOrElse("")} - Reason code : ${returnReasonCode.getOrElse("")}"
+      )
+
+      returnedObpTransactionId = TransactionId(returnedObpTransaction.transaction_id)
+
+    } yield returnedObpTransactionId
   }
 
   /** This method pre-process messages by saving message and getting the original transaction reference if there is one
