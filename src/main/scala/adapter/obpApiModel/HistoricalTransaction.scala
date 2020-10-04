@@ -58,11 +58,6 @@ case class HistoricalTransactionAccountJsonV310(
                                                  counterparty_id: Option[String],
                                                )
 
-case class AmountOfMoneyJsonV121(
-                                  currency: String,
-                                  amount: String
-                                )
-
 case class PostHistoricalTransactionResponseJson(
                                                   transaction_id: String,
                                                   from: HistoricalTransactionAccountJsonV310,

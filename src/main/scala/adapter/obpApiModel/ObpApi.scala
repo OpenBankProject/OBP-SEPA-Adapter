@@ -20,6 +20,7 @@ import model.types.Bic
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 /**
  * This object is used to make calls to the OBP-API
@@ -56,25 +57,33 @@ object ObpApi {
       .flatMap(json => Future.fromTry(json.as[PostHistoricalTransactionResponseJson].toTry))
   }
 
-  // Maybe the bankId and the viewId should be returned by this function
-  def getAccountIdByIban(bankId: BankId, viewId: ViewId, iban: Iban)(implicit context: ActorContext): Future[AccountId] = {
-    val body = JsonObject.fromMap(Map(("iban", iban.iban.asJson))).asJson.toString()
-    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${viewId.value}/account", HttpMethods.POST, body)
+  def getAccountByIban(bankId: Option[BankId], iban: Iban)(implicit context: ActorContext): Future[ModeratedAccountJSON400] = {
+    val bankAccountRouting = BankAccountRoutingJson(
+      bank_id = bankId.map(_.value),
+      account_routing = AccountRoutingJsonV121(
+        scheme = "IBAN",
+        address = iban.iban
+      )
+    )
 
-    callResult.flatMap {
-      case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
-        Future.successful(AccountId((jsonResult \\ "id").headOption.flatMap(_.asString).get))
-      case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
-        val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
-        val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)
-        (errorCode, errorMessage.flatMap(_.split(":").headOption)) match {
-          case (Some(404), Some("OBP-30018")) =>
-            Future.failed(new ObpAccountNotFoundException(errorMessage.getOrElse("")))
-          case _ => Future.failed(new Exception(s"Unknow error in getObpAccountIdByIban: ${errorMessage.getOrElse("")}"))
+    callObpApi(s"$endpointPrefix/management/accounts/account-routing-query", HttpMethods.POST, bankAccountRouting.asJson.toString())
+      .flatMap(json =>
+        json.as[ModeratedAccountJSON400].toTry match {
+          case Success(account) => Future.successful(account)
+          case Failure(_) =>
+            json.as[ObpApiError].toTry match {
+              case Success(error) =>
+                (error.code, error.message.split(":").headOption) match {
+                  case ("404", Some("OBP-30018")) => Future.failed(new ObpAccountNotFoundException(error.message))
+                  case _ => Future.failed(new Exception(s"Unknown error in getObpAccountByIban: ${error.message}"))
+                }
+              case Failure(exception) =>
+                Future.failed(new Exception(s"Unknown error in getAccountByIban: $json"))
+            }
         }
-      case jsonResult => Future.failed(new Exception(s"Unknow error in getAccountIdByIban: $jsonResult"))
+      )
     }
-  }
+
 
   def getBicByBankId(bankId: BankId)(implicit context: ActorContext): Future[Bic] = {
     val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}", HttpMethods.GET)
@@ -107,7 +116,7 @@ object ObpApi {
   def createCounterparty(bankId: BankId, accountId: AccountId, name: String, iban: Iban, bic: Bic)(implicit context: ActorContext): Future[CounterpartyWithMetadataJson400] = {
     val counterparty = PostCounterpartyJson400(
       name = name,
-      description = "Counterparty added automatically by SEPA Adapter",
+      description = "Counterparty added by SEPA Adapter",
       currency = "EUR",
       other_account_routing_scheme = "",
       other_account_routing_address = "",
@@ -128,6 +137,7 @@ object ObpApi {
 
   def getOrCreateCounterparty(bankId: BankId, accountId: AccountId, name: String, iban: Iban, bic: Bic)(implicit context: ActorContext): Future[CounterpartyJson400] =
     for {
+      // TODO: Check the counterparties names before inserting a new one (check if the name already exist)
       maybeCounterparty <- getCounterpartyByIban(bankId, accountId, iban)
       counterparty <- maybeCounterparty match {
         case Some(counterparty) => Future.successful(counterparty)

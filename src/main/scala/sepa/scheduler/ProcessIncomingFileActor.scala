@@ -52,14 +52,13 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             integratedTransactions <- Future.sequence(validTransactions.map(transaction => {
               (for {
 
-                creditor <- ObpApi.getAccountIdByIban(
-                  bankId = Adapter.BANK_ID,
-                  viewId = Adapter.VIEW_ID,
+                creditor <- ObpApi.getAccountByIban(
+                  bankId = Some(Adapter.BANK_ID),
                   iban = Iban(transaction._1.creditorAccount.map(_.iban).getOrElse(""))
-                ).map(accountId =>
+                ).map(account =>
                   HistoricalTransactionAccountJsonV310(
                     bank_id = Some(Adapter.BANK_ID.value),
-                    account_id = Some(accountId.value),
+                    account_id = Some(account.id),
                     counterparty_id = None
                   )
                 )
@@ -138,7 +137,8 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                       case None => Future.failed(new Exception(s"Original recall message of returned transaction ${transaction._1.id} not found"))
                     }
                     // we get the accountID from the account IBAN
-                    accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.debtorAccount.getOrElse(Iban("")))
+                    account <- ObpApi.getAccountByIban(Some(Adapter.BANK_ID), transaction._1.debtorAccount.getOrElse(Iban("")))
+                    accountId = AccountId(account.id)
                     // we get the transaction Request challenge ID
                     challengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID,
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")))
@@ -244,7 +244,8 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                   ).asJson
                 )
                 // we get the accountId by IBAN
-                accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.creditorAccount.getOrElse(Iban("")))
+                account <- ObpApi.getAccountByIban(Some(Adapter.BANK_ID), transaction._1.creditorAccount.getOrElse(Iban("")))
+                accountId = AccountId(account.id)
                 // we create the transaction request REFUND
                 transactionRequestId <- ObpApi.createRefundTransactionRequest(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, refundTransactionRequest)
                 // we update the message link with the recall message by adding the transactionRequestId
@@ -284,7 +285,8 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                 // we get the transaction request id
                 recallTransactionRequestId = transactionRecallMessageLink.obpTransactionRequestId.orNull
                 // we get the account id by IBAN
-                accountId <- ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, transaction._1.debtorAccount.orNull)
+                account <- ObpApi.getAccountByIban(Some(Adapter.BANK_ID), transaction._1.debtorAccount.orNull)
+                accountId = AccountId(account.id)
                 // we get the transaction request challenge id
                 transactionRequestChallengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, recallTransactionRequestId)
                 recallRejectReasoninformation = transaction._1.customFields.flatMap(json =>
@@ -453,14 +455,13 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
       returnReasonCode = transaction.customFields.flatMap(json =>
         (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RETURN_REASON_CODE.toString).headOption.flatMap(_.asString))
 
-      creditor <- ObpApi.getAccountIdByIban(
-        bankId = Adapter.BANK_ID,
-        viewId = Adapter.VIEW_ID,
+      creditor <- ObpApi.getAccountByIban(
+        bankId = Some(Adapter.BANK_ID),
         iban = Iban(transaction.debtorAccount.map(_.iban).getOrElse(""))
-      ).map(accountId =>
+      ).map(account =>
         HistoricalTransactionAccountJsonV310(
           bank_id = Some(Adapter.BANK_ID.value),
-          account_id = Some(accountId.value),
+          account_id = Some(account.id),
           counterparty_id = None
         )
       )

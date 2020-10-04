@@ -93,19 +93,19 @@ case class CounterpartyWithMetadataJson400(
                                             other_account_secondary_routing_scheme: String,
                                             other_account_secondary_routing_address: String,
                                             is_beneficiary: Boolean,
-                                            bespoke:List[PostCounterpartyBespokeJson],
+                                            bespoke: List[PostCounterpartyBespokeJson],
                                             metadata: CounterpartyMetadataJson
                                           )
 
 case class CounterpartyMetadataJson(
-                                     public_alias : String,
-                                     more_info : String,
-                                     url : String,
-                                     image_url : String,
-                                     open_corporates_url : String,
-                                     corporate_location : LocationJsonV210,
-                                     physical_location :  LocationJsonV210,
-                                     private_alias : String
+                                     public_alias: String,
+                                     more_info: String,
+                                     url: String,
+                                     image_url: String,
+                                     open_corporates_url: String,
+                                     corporate_location: Option[LocationJsonV210],
+                                     physical_location: Option[LocationJsonV210],
+                                     private_alias: String
                                    )
 
 case class LocationJsonV210(

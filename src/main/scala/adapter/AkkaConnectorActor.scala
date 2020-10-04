@@ -211,8 +211,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
               val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
               // So one of the two following OBP request will fail and one will success (WARNING : this is not a good method to do this)
-              val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
-              val accountTo = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, toAccountIban)
+              val accountFrom = ObpApi.getAccountByIban(Some(Adapter.BANK_ID), fromAccountIban)
+              val accountTo = ObpApi.getAccountByIban(Some(Adapter.BANK_ID), toAccountIban)
 
               // In case the fromAccount is the OBP account owner and he want to refund the counterparty (SEPA Return message)
               accountFrom.flatMap(obpAccountFrom => {
@@ -227,7 +227,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
                 val debtor = HistoricalTransactionAccountJsonV310(
                   bank_id = Some(Adapter.BANK_ID.value),
-                  account_id = Some(obpAccountFrom.value),
+                  account_id = Some(obpAccountFrom.id),
                   counterparty_id = None
                 )
 
@@ -267,7 +267,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
                 val creditor = HistoricalTransactionAccountJsonV310(
                   bank_id = Some(Adapter.BANK_ID.value),
-                  account_id = Some(obpAccountTo.value),
+                  account_id = Some(obpAccountTo.id),
                   counterparty_id = None
                 )
 
@@ -354,8 +354,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
                   val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
                   // So one of the two following OBP request will fail and one will success (WARNING : this is not a good method to do this)
-                  val accountFrom = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, fromAccountIban)
-                  val accountTo = ObpApi.getAccountIdByIban(Adapter.BANK_ID, Adapter.VIEW_ID, toAccountIban)
+                  val accountFrom = ObpApi.getAccountByIban(Some(Adapter.BANK_ID), fromAccountIban)
+                  val accountTo = ObpApi.getAccountByIban(Some(Adapter.BANK_ID), toAccountIban)
 
                   accountFrom.map(_ => { // Case where the counterparty want to be refund by the account (RECALL Request Receipt)
                     // In this case, the transactionRequest is coming from the SEPA Adapter, so no need to save anything
