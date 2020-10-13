@@ -3,7 +3,7 @@ package adapter
 import java.time.{LocalDate, LocalDateTime, ZoneId, ZoneOffset}
 import java.util.{Date, UUID}
 
-import adapter.obpApiModel.{CounterpartyAccountReference, CustomerAccountReference, HistoricalTransactionAccountJsonV310, HistoricalTransactionJson, ObpApi}
+import adapter.obpApiModel.{HistoricalTransactionAccountJsonV310, ObpApi}
 import akka.actor.{Actor, ActorLogging}
 import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
@@ -448,7 +448,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
           callContext.correlationId,
           callContext.sessionId,
           callContext.generalContext
-        ), successInBoundStatus, status)
+        ), successInBoundStatus, TransactionRequestStatusValue(status.toString))
         obpAkkaConnector ! result
       }).recover {
         case exception: Exception => log.error(exception.getMessage)

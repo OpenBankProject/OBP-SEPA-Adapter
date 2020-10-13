@@ -145,21 +145,19 @@ object ObpApi {
       }
     } yield counterparty
 
-  def createRefundTransactionRequest(bankId: BankId, accountId: AccountId, viewId: ViewId, refundTransactionRequest: RefundTransactionRequest)(implicit context: ActorContext): Future[TransactionRequestId] = {
-    val body = refundTransactionRequest.asJson.toString()
-    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests", HttpMethods.POST, body)
-    callResult.map(println)
-    callResult.flatMap {
-      case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
-        Future.successful(TransactionRequestId((jsonResult \\ "id").headOption.flatMap(_.asString).get))
-      case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
-        val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
-        val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)
-        (errorCode, errorMessage.flatMap(_.split(":").headOption)) match {
-          case _ => Future.failed(new Exception(s"Unknow error in createRefundTransactionRequest: ${errorMessage.getOrElse("")}"))
-        }
-      case jsonResult => Future.failed(new Exception(s"Unknow error in createRefundTransactionRequest: $jsonResult"))
-    }
+  def createRefundTransactionRequest(bankId: BankId, accountId: AccountId, from: Option[TransactionRequestRefundFrom], to: Option[TransactionRequestRefundTo],
+                                    refundAmount: BigDecimal, refundDescription: String, originalObpTransactionId: TransactionId, reasonCode: String)(implicit context: ActorContext): Future[TransactionRequestWithChargeJSON210] = {
+    val transactionRequestRefundBody = TransactionRequestBodyRefundJsonV400(
+      to = to,
+      from = from,
+      value = AmountOfMoneyJsonV121(currency = "EUR", amount = refundAmount.toString()),
+      description = refundDescription,
+      refund = RefundJson(transaction_id = originalObpTransactionId.value, reason_code = reasonCode)
+    )
+
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/REFUND/transaction-requests",
+      HttpMethods.POST, transactionRequestRefundBody.asJson.toString())
+      .flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
   }
 
   def getTransactionRequestChallengeId(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId)(implicit context: ActorContext): Future[String] = {

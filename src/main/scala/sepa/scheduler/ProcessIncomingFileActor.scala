@@ -227,27 +227,36 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                       transaction._1.id, creditTransferMesage.id)
                   case None => Future.failed(new Exception(s"Original sepa credit transfer message linked with sepaCreditTransferTransactionId ${transaction._1.id} not found"))
                 }
-                // we create the transaction request REFUND body
-                refundTransactionRequest = RefundTransactionRequest(
-                  from = Some(RefundTransactionRequestCounterpartyIban(transaction._1.debtorAccount.map(_.iban).getOrElse("")).asJson),
-                  value = AmountOfMoney(
-                    currency = "EUR",
-                    amount = transaction._1.amount.toString
-                  ).asJson,
-                  description = transaction._1.customFields.flatMap(json =>
-                    (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString)
-                      .headOption.flatMap(_.asString)).orElse(transaction._1.description).getOrElse(""),
-                  refund = RefundTransactionRequestContent(
-                    transaction_id = transactionMessageLink.obpTransactionId.map(_.value).getOrElse(""),
-                    reason_code = transaction._1.customFields.flatMap(json =>
-                      (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString)).getOrElse("")
-                  ).asJson
-                )
+
                 // we get the accountId by IBAN
                 account <- ObpApi.getAccountByIban(Some(Adapter.BANK_ID), transaction._1.creditorAccount.getOrElse(Iban("")))
                 accountId = AccountId(account.id)
+                // We get the counterparty that sended the recall
+                counterparty <- ObpApi.getOrCreateCounterparty(
+                  bankId = Adapter.BANK_ID,
+                  accountId = accountId,
+                  name = transaction._1.debtor.flatMap(_.name).getOrElse(""),
+                  iban = transaction._1.debtorAccount.get,
+                  bic = transaction._1.debtorAgent.get
+                )
+                refundDescription = transaction._1.customFields.flatMap(json =>
+                  (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ADDITIONAL_INFORMATION.toString)
+                    .headOption.flatMap(_.asString)).orElse(transaction._1.description).getOrElse("")
+                reasonCode = transaction._1.customFields.flatMap(json =>
+                  (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).headOption.flatMap(_.asString)).getOrElse("")
+
                 // we create the transaction request REFUND
-                transactionRequestId <- ObpApi.createRefundTransactionRequest(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, refundTransactionRequest)
+                transactionRequest <- ObpApi.createRefundTransactionRequest(
+                  bankId = Adapter.BANK_ID,
+                  accountId = accountId,
+                  from = Some(TransactionRequestRefundFrom(counterparty_id = counterparty.counterparty_id)),
+                  to = None,
+                  refundAmount = transaction._1.amount,
+                  refundDescription = refundDescription,
+                  originalObpTransactionId = transactionMessageLink.obpTransactionId.get,
+                  reasonCode = reasonCode
+                )
+                transactionRequestId = TransactionRequestId(transactionRequest.id)
                 // we update the message link with the recall message by adding the transactionRequestId
                 _ <- transaction._1.updateMessageLink(paymentRecallMessage.message.id, transaction._2, Some(transactionRequestId), None)
               } yield ()
