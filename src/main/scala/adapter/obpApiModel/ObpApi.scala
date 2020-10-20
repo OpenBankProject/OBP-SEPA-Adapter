@@ -84,6 +84,10 @@ object ObpApi {
       )
     }
 
+  def getAccountByAccountId(bankId: BankId, accountId: AccountId)(implicit context: ActorContext): Future[ModeratedAccountJSON400] = {
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/account", HttpMethods.GET)
+      .flatMap(json => Future.fromTry(json.as[ModeratedAccountJSON400].toTry))
+  }
 
   def getBicByBankId(bankId: BankId)(implicit context: ActorContext): Future[Bic] = {
     val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}", HttpMethods.GET)

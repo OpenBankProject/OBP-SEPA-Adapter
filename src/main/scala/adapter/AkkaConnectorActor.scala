@@ -50,7 +50,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
     // Case we receive a makePaymentv210 message
     case OutBoundMakePaymentv210(callContext, fromAccount, toAccount, transactionRequestId, transactionRequestCommonBody, amount, description, transactionRequestType, chargePolicy) =>
-      println("Make payment message received")
+      println("Make payment v210 message received")
 
       val obpAkkaConnector = sender
 
@@ -316,6 +316,145 @@ class AkkaConnectorActor extends Actor with ActorLogging {
           }).recover {
             case exception: Exception => log.error(exception.getMessage)
           }
+      }
+
+    // Case we receive a makePaymentv210 message
+    case OutBoundMakePaymentV400(callContext, transactionRequest, reasons) =>
+      println("Make payment v400 message received")
+
+      val obpAkkaConnector = sender
+
+      // In the case the transaction request type is SEPA
+      transactionRequest.`type` match {
+        case "SEPA" =>
+          val creditTransferTransactionId = UUID.randomUUID()
+
+          (for {
+            fromAccount <- ObpApi.getAccountByAccountId(BankId(transactionRequest.from.bank_id),
+              AccountId(transactionRequest.from.account_id))
+            fromAccountBic <- ObpApi.getBicByBankId(BankId(fromAccount.bank_id))
+            toAccountBic = Bic(transactionRequest.other_bank_routing_address)
+
+            // We create a new transaction on the Adapter side (only in memory at the moment)
+            creditTransferTransaction = SepaCreditTransferTransaction(
+              id = creditTransferTransactionId,
+              amount = BigDecimal(transactionRequest.body.value.amount),
+              debtor = Some(Party(fromAccount.owners.headOption.map(_.display_name))),
+              debtorAccount = fromAccount.account_routings.find(_.scheme == "IBAN").map(a => Iban(a.address)),
+              debtorAgent = Some(fromAccountBic),
+              ultimateDebtor = None,
+              creditor = Some(Party(Some(transactionRequest.name))),
+              creditorAccount = Some(Iban(transactionRequest.other_account_routing_address)),
+              creditorAgent = Some(toAccountBic),
+              ultimateCreditor = None,
+              purposeCode = None,
+              description = Some(transactionRequest.body.description),
+              creationDateTime = LocalDateTime.now(),
+              settlementDate = Some(LocalDate.now().plusDays(1)),
+              transactionIdInSepaFile = SepaUtil.removeDashesToUUID(creditTransferTransactionId),
+              instructionId = None,
+              endToEndId = SepaUtil.removeDashesToUUID(creditTransferTransactionId),
+              settlementInformation = Some(SettlementInformation(settlementMethod = SettlementMethod.CLEARING_SYSTEM)),
+              paymentTypeInformation = Some(PaymentTypeInformation(serviceLevelCode = Some(ServiceLevelCode.SEPA))),
+              status = SepaCreditTransferTransactionStatus.UNPROCESSED,
+              customFields = None
+            )
+
+            debtor = HistoricalTransactionAccountJsonV310(
+              bank_id = Some(fromAccount.bank_id),
+              account_id = Some(fromAccount.id),
+              counterparty_id = None
+            )
+
+            creditor <- ObpApi.getOrCreateCounterparty(
+              bankId = BankId(fromAccount.bank_id),
+              accountId = AccountId(fromAccount.id),
+              name = transactionRequest.name,
+              iban = Iban(creditTransferTransaction.creditorAccount.map(_.iban).getOrElse("")),
+              bic = toAccountBic
+            ).map(counterparty =>
+              HistoricalTransactionAccountJsonV310(
+                bank_id = None,
+                account_id = None,
+                counterparty_id = Some(counterparty.counterparty_id)
+              )
+            )
+
+            // We send the request to save the transaction in OBP-API
+            createdObpTransaction <- ObpApi.saveHistoricalTransaction(
+              debtor = debtor,
+              creditor = creditor,
+              amount = creditTransferTransaction.amount,
+              description = creditTransferTransaction.description.getOrElse("")
+            )
+
+            createdObpTransactionId = TransactionId(createdObpTransaction.transaction_id)
+
+            // If it succeed, we save the transaction in the SEPA Adapter
+            _ <- creditTransferTransaction.insert()
+            // We now look for the unprocessed credit transfer message
+            unprocessedCreditTransferMessage <- SepaMessage.getUnprocessedByType(SepaMessageType.B2B_CREDIT_TRANSFER)
+              .map(_.headOption.getOrElse {
+                // if we don't find one, we create a new message and save it into the Adapter database
+                val sepaMessageId = UUID.randomUUID()
+                val message = SepaMessage(
+                  sepaMessageId, LocalDateTime.now(), SepaMessageType.B2B_CREDIT_TRANSFER,
+                  SepaMessageStatus.UNPROCESSED, sepaFileId = None, SepaUtil.removeDashesToUUID(sepaMessageId),
+                  numberOfTransactions = 0, totalAmount = 0, None, None, None,
+                  customFields = Some(Json.fromJsonObject(JsonObject.empty
+                    .add(SepaMessageCustomField.CREDIT_TRANFER_SETTLEMENT_INFORMATION.toString,
+                      SettlementInformation(settlementMethod = SettlementMethod.CLEARING_SYSTEM).toJson)
+                    .add(SepaMessageCustomField.CREDIT_TRANFER_PAYMENT_TYPE_INFORMATION.toString,
+                      PaymentTypeInformation(serviceLevelCode = Some(ServiceLevelCode.SEPA)).toJson)
+                  ))
+                )
+                message.insert()
+                message
+              })
+
+            // We can now link the transaction with the credit transfer message
+            _ <- creditTransferTransaction.linkMessage(
+              sepaMessageId = unprocessedCreditTransferMessage.id,
+              transactionStatusIdInSepaFile = creditTransferTransaction.transactionIdInSepaFile,
+              obpTransactionRequestId = Some(transactionRequest.id),
+              obpTransactionId = Some(createdObpTransactionId)
+            )
+            // We also update the message total amount and number of transactions
+            _ <- unprocessedCreditTransferMessage.copy(
+              numberOfTransactions = unprocessedCreditTransferMessage.numberOfTransactions + 1,
+              totalAmount = unprocessedCreditTransferMessage.totalAmount + creditTransferTransaction.amount
+            ).update()
+
+            // We send the inBound message to the OBP-API connector with the newly created transactionId in OBP
+            result = InBoundMakePaymentV400(
+              inboundAdapterCallContext = InboundAdapterCallContext(
+                callContext.correlationId,
+                callContext.sessionId,
+                callContext.generalContext
+              ),
+              status = successInBoundStatus,
+              data = TransactionId(createdObpTransactionId.toString)
+            )
+          } yield {
+            obpAkkaConnector ! result
+          })
+            .recover {
+              case exception: Exception =>
+                log.error(exception.getMessage)
+
+                val result = InBoundMakePaymentV400(
+                  inboundAdapterCallContext = InboundAdapterCallContext(
+                    callContext.correlationId,
+                    callContext.sessionId,
+                    callContext.generalContext
+                  ),
+                  status = Status("Payment error", List(InboundStatusMessage(
+                    "", "Error in MakePayment", "", exception.getMessage
+                  ))),
+                  data = null
+                )
+                obpAkkaConnector ! result
+            }
       }
 
     // The adapter receive a notifyTransactionRequest message from the OBP-API connector
