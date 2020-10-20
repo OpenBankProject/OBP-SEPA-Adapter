@@ -8,9 +8,10 @@ This project is dual licensed under the AGPL V3 (see LICENSE) and commercial lic
 
 ## GETTING STARTED
 
-- First, you'll need the forked version of the OBP-API working with the SEPA adapter :
-https://github.com/GuillaumeKergreis/OBP-API/tree/AddSepaAdapter.
-In the OBP-API props file (obp-api/src/main/resources/props/default.props), be sure to have these corresponding values :
+- First, you'll need the develop version of the OBP-API :
+https://github.com/OpenBankProject/OBP-API/tree/develop.
+
+- In the OBP-API props file (obp-api/src/main/resources/props/default.props), be sure to have these corresponding values :
 ```
 connector=star
 starConnector_supported_types=mapped,akka
@@ -20,19 +21,12 @@ akka_connector.port=2662
 akka_connector.timeout=10
 SEPA_OTP_INSTRUCTION_TRANSPORT=DUMMY
 REFUND_OTP_INSTRUCTION_TRANSPORT=DUMMY
-implicitly_convert_ids=true
 ```
 
-- In the BANKIDMAPPING table, add a row to map the BankId you are using with a BIC. For example :
-
-| ID | UPDATEDAT                     | CREATEDAT                     | MBANKPLAINTEXTREFERENCE | MBANKID             |
-|----| ----------------------------- | ----------------------------- | ----------------------- | ------------------- |
-| 1  | 2020-07-01 23:18:17.000000000 | 2020-07-01 23:18:20.000000000 | OBPBDEB1XXX             | THE_DEFAULT_BANK_ID |
-
-- Add the necessary methodRouting `makePaymentv210` and `notifyTransactionRequest` 
+- Add the necessary methodRouting `makePaymentv210`, `makePaymentV400` and `notifyTransactionRequest` 
 to route them through the "akka_vDec2018" connector.
 You can do this by calling the OBP create method routing endpoint 
-`localhost:8080/obp/v4.0.0/management/method_routings` (POST) with the following body (example for makePaymentv210) :
+`localhost:8080/obp/v4.0.0/management/method_routings` (POST) with the following body (example for `makePaymentv210`) :
 ```
 {
     "is_bank_id_exact_match": false,
@@ -44,7 +38,9 @@ You can do this by calling the OBP create method routing endpoint
 ```
 
 - In the SEPA Adapter application.conf file (src/main/ressources/application.conf) configure your postgreSQL Database,
-fill-in your OBP-API DirectLogin token and configure the akka properties if necessary.
+fill-in your OBP-API DirectLogin token and configure the akka properties if necessary. 
+Fill the `sepa-adapter` fields `bank-id` with the `BankId` you created on the OBP-API (e.g. `THE_DEFAULT_BANK_ID`)
+and the `bank-bic` one with your OBP-API Bank BIC (e.g. `OBPBDEB1XXX`).
 ```
 databaseConfig = {
   dataSourceClass = "org.postgresql.ds.PGSimpleDataSource"
@@ -60,13 +56,18 @@ obp-api = {
     direct-login-token = "FILL_ME"
   }
 }
+sepa-adapter {
+  bank-id = "FILL_ME"
+  bank-bic = "FILL_ME"
+}
 ```
 
-- Then, run the `DatabaseSchema.sql` (`src/main/scala/model/DatabaseSchema.sql`) to create the required database tables.
+- Then, run the `DatabaseSchema.sql` script (`src/main/scala/model/DatabaseSchema.sql`) to create the required database tables.
 
 - Now, you should be able to start the SEPA Adapter (`src/main/scala/adapter/Adapter.scala`)
 
-- The OBP-API user connected to the SEPA Adapter need some necessary entitlements to work:
+- The OBP-API user connected to the SEPA Adapter need the following entitlements. Those ones can be added
+by calling the entitlements endpoint `localhost:8080/obp/v4.0.0/users/USER_ID/entitlements` (POST).
     - `CanCreateHistoricalTransaction`
     - `CanCreateAnyTransactionRequest`
 
@@ -90,11 +91,6 @@ demonstration video : [Receive a credit transfer transaction](https://vimeo.com/
 This SEPA adapter works with the OBP-API to provide a SEPA payment solution.
 
 [OBP SEPA Adapter - Global overview](https://vimeo.com/440002863)
-
-The current fork of the OBP-API working with the SEPA adapter is available here :
-https://github.com/GuillaumeKergreis/OBP-API/tree/AddSepaAdapter.
-The features present in this branch will be gradually added to the OBP-API 
-so that ultimately the OBP-API will be fully compatible with the adapater.
 
 ### SEPA messages support
 
@@ -134,7 +130,8 @@ This allows the system to be fully transparent.
 
 Here are the connector methods used by the SEPA adapter : 
 - makePaymentv210
-- notifyTransactionRequest (Implemented in the OBP-API forked version)
+- makePaymentV400
+- notifyTransactionRequest
 
 Those methods must be defined in the methods routings to be routed with the akka connector.
 So the OBP-API connector need to be set to `star` in the props file.
@@ -146,7 +143,11 @@ Here are the endpoints called by the SEPA Adapter to communicate with the OBP-AP
 - createTransactionRequestRefund
 - getTransactionRequest
 - answerTransactionRequestChallenge
-- getAccountIdByIban (Implemented in the OBP-API forked version)
+- getAccountByAccountRouting
+- getPrivateAccountByIdFull
+- getBankById
+- getExplictCounterpartiesForAccount
+- createCounterparty
 
 ## DOCUMENTATION
 
