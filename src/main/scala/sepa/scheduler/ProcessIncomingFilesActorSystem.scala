@@ -32,8 +32,8 @@ object ProcessIncomingFilesActorSystem extends App {
   val processIncomingFileActor = system.actorOf(Props.create(classOf[ProcessIncomingFileActor]), "obp-api-request-actor")
 
   // list of files that will be processed
-  val filesToProcess = Seq[File](
-    new File(s"src/main/scala/sepa/sct/file/in/SEPA_SCT_IN_pacs.008.001.02.xml")
+  val filesToProcess = args.map(filePath => new File(filePath)).toSeq ++ Seq(
+    // new File(s"src/main/scala/sepa/sct/file/in/SEPA_SCT_IN_pacs.008.001.02.xml")
   )
 
   filesToProcess.foreach(file => {

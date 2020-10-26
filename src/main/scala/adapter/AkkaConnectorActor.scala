@@ -4,7 +4,7 @@ import java.time.{LocalDate, LocalDateTime, ZoneId, ZoneOffset}
 import java.util.{Date, UUID}
 
 import adapter.obpApiModel.{HistoricalTransactionAccountJsonV310, ObpApi}
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, ActorSystem}
 import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
@@ -28,6 +28,8 @@ import scala.concurrent.Future
 import scala.util.Try
 
 class AkkaConnectorActor extends Actor with ActorLogging {
+
+  implicit val system: ActorSystem = context.system
 
   val cluster: Cluster = Cluster(context.system)
 

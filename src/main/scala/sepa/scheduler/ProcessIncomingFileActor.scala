@@ -5,7 +5,7 @@ import java.time.{LocalDateTime, ZoneId, ZoneOffset}
 
 import adapter.obpApiModel._
 import adapter.{Adapter, ObpAccountNotFoundException}
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, ActorSystem}
 import com.openbankproject.commons.model.{AccountId, AmountOfMoney, Iban, TransactionId, TransactionRequestId}
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -36,6 +36,8 @@ case class ProcessIncomingInquiryClaimValueDateCorrectionNegativeAnswerMessage(x
 case class ProcessIncomingRequestStatusUpdateMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 class ProcessIncomingFileActor extends Actor with ActorLogging {
+
+  implicit val system: ActorSystem = context.system
 
   def receive: Receive = {
 
