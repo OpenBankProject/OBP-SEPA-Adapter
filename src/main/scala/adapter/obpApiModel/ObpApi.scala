@@ -74,7 +74,7 @@ object ObpApi {
             json.as[ObpApiError].toTry match {
               case Success(error) =>
                 (error.code, error.message.split(":").headOption) match {
-                  case ("404", Some("OBP-30018")) => Future.failed(new ObpAccountNotFoundException(error.message))
+                  case (404, Some("OBP-30073")) => Future.failed(new ObpAccountNotFoundException(error.message))
                   case _ => Future.failed(new Exception(s"Unknown error in getObpAccountByIban: ${error.message}"))
                 }
               case Failure(exception) =>
@@ -187,7 +187,6 @@ object ObpApi {
 
   def getTransactionRequestChallengeId(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId)(implicit system: ActorSystem): Future[String] = {
     val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-requests/${transactionRequestId.value}", HttpMethods.GET)
-    callResult.map(println)
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "challenge").headOption.flatMap(challenge => (challenge \\ "id").headOption.flatMap(_.asString)).isDefined =>
         Future.successful((jsonResult \\ "challenge").headOption.flatMap(challenge => (challenge \\ "id").headOption.flatMap(_.asString)).get)
@@ -204,7 +203,6 @@ object ObpApi {
   def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId, transactionRequestChallengeAnswer: TransactionRequestChallengeAnswer)(implicit system: ActorSystem): Future[Option[TransactionId]] = {
     val body = transactionRequestChallengeAnswer.asJson.toString()
     val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests/${transactionRequestId.value}/challenge", HttpMethods.POST, body)
-    callResult.map(println)
     callResult.flatMap {
       case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
         Future.successful((jsonResult \\ "transaction_ids").headOption

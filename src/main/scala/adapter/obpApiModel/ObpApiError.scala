@@ -1,6 +1,6 @@
 package adapter.obpApiModel
 
 case class ObpApiError(
-                        code: String,
+                        code: Int,
                         message: String
                       )
