@@ -6,7 +6,7 @@ import java.time.{LocalDateTime, ZoneId, ZoneOffset}
 import adapter.obpApiModel._
 import adapter.{Adapter, ObpAccountNotFoundException}
 import akka.actor.{Actor, ActorLogging, ActorSystem}
-import com.openbankproject.commons.model.{AccountId, AmountOfMoney, Iban, TransactionId, TransactionRequestId}
+import com.openbankproject.commons.model.{AccountId, AmountOfMoney, Iban, TransactionId, TransactionRequestId, TransactionRequestType}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Json, JsonObject}
@@ -144,14 +144,12 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                     // we get the transaction Request challenge ID
                     challengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID,
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")))
-                    transactionRequestChallengeAnswer = TransactionRequestChallengeAnswer(challengeId, "123")
+                    transactionRequestChallengeAnswer = ChallengeAnswerJson400(challengeId, "123")
                     // we answer the challenge with a positive response (Dummy answer `123`) and we get the created transactionId
-                    createdObpTransactionId <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, Adapter.VIEW_ID,
+                    transactionRequestAfterChallenge <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, TransactionRequestType("REFUND"),
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")),
-                      transactionRequestChallengeAnswer).flatMap {
-                      case Some(obpTransactionId) => Future.successful(obpTransactionId)
-                      case None => Future.failed(new Exception(s"ObpTransactionId is missing after challenge $challengeId completed"))
-                    }
+                      transactionRequestChallengeAnswer)
+                    createdObpTransactionId = TransactionId(transactionRequestAfterChallenge.transaction_ids)
                   } yield (transactionMessageLink.obpTransactionRequestId, createdObpTransactionId))
                     .recoverWith {
                       case e: Exception =>
@@ -304,7 +302,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                   (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString)
                     .headOption.flatMap(_.asArray).flatMap(_.headOption))
                 // we create the answer transaction request (REJECT) body
-                transactionRequestChallengeAnswer = TransactionRequestChallengeAnswer(
+                transactionRequestChallengeAnswer = ChallengeAnswerJson400(
                   id = transactionRequestChallengeId,
                   answer = "REJECT",
                   reason_code = recallRejectReasoninformation.flatMap(j =>
@@ -315,7 +313,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                       .headOption.flatMap(_.asString))
                 )
                 // we reject the transaction request REFUND by answering the challenge
-                _ <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, recallTransactionRequestId, transactionRequestChallengeAnswer)
+                _ <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, TransactionRequestType("REFUND"), recallTransactionRequestId, transactionRequestChallengeAnswer)
                 _ <- transaction._1.updateMessageLink(paymentRecallNegativeAnswerMessage.message.id, transaction._2, Some(recallTransactionRequestId), None)
               } yield ()
             }

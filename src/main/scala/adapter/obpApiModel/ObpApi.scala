@@ -200,21 +200,9 @@ object ObpApi {
     }
   }
 
-  def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId, transactionRequestChallengeAnswer: TransactionRequestChallengeAnswer)(implicit system: ActorSystem): Future[Option[TransactionId]] = {
-    val body = transactionRequestChallengeAnswer.asJson.toString()
-    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-request-types/REFUND/transaction-requests/${transactionRequestId.value}/challenge", HttpMethods.POST, body)
-    callResult.flatMap {
-      case jsonResult if (jsonResult \\ "id").headOption.flatMap(_.asString).isDefined =>
-        Future.successful((jsonResult \\ "transaction_ids").headOption
-          .flatMap(_.asArray).flatMap(_.headOption).flatMap(_.asString).map(TransactionId(_)))
-      case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
-        val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
-        val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)
-        (errorCode, errorMessage.flatMap(_.split(":").headOption)) match {
-          case _ => Future.failed(new Exception(s"Unknow error in answerTransactionRequestChallenge: ${errorMessage.getOrElse("")}"))
-        }
-      case jsonResult => Future.failed(new Exception(s"Unknow error in answerTransactionRequestChallenge: $jsonResult"))
-    }
+  def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, transactionRequestType: TransactionRequestType, transactionRequestId: TransactionRequestId, challengeAnswer: ChallengeAnswerJson400)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJson] = {
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/${transactionRequestType.value}/transaction-requests/${transactionRequestId.value}/challenge",
+      HttpMethods.POST, challengeAnswer.asJson.toString()).flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJson].toTry))
   }
 
   private def callObpApi(uri: String, httpMethod: HttpMethod, body: String = "")(implicit system: ActorSystem): Future[Json] = {
