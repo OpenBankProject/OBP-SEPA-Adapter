@@ -2,7 +2,9 @@ package adapter.obpApiModel
 
 import java.util.Date
 
-import com.openbankproject.commons.model.TransactionRequestBody
+import com.openbankproject.commons.model.TransactionRequestBodyAllTypes
+
+import scala.collection.immutable.List
 
 case class ChallengeAnswerJson400(
                                    id: String,
@@ -11,15 +13,15 @@ case class ChallengeAnswerJson400(
                                    additional_information: Option[String] = None
                                  )
 
-case class TransactionRequestWithChargeJson(
-                                             id: String,
-                                             `type`: String,
-                                             from: TransactionRequestAccountJsonV140,
-                                             details: TransactionRequestBody,
-                                             transaction_ids: String,
-                                             status: String,
-                                             start_date: Date,
-                                             end_date: Date,
-                                             challenge: ChallengeJsonV140,
-                                             charge: TransactionRequestChargeJsonV200
-                                           )
+case class TransactionRequestWithChargeJSON210(
+                                                id: String,
+                                                `type`: String,
+                                                from: TransactionRequestAccountJsonV140,
+                                                details: TransactionRequestBodyAllTypes,
+                                                transaction_ids: List[String],
+                                                status: String,
+                                                start_date: Date,
+                                                end_date: Date,
+                                                challenge: ChallengeJsonV140,
+                                                charge: TransactionRequestChargeJsonV200
+                                              )

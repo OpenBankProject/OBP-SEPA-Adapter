@@ -37,7 +37,7 @@ class CreditTransferTransactionSpec extends AsyncFeatureSpec with GivenWhenThen 
         _ <- Future(Then("we should get a successful response"))
         _ <- transactionRequest.`type` should be("SEPA")
         _ <- transactionRequest.status should be("COMPLETED")
-        _ <- transactionRequest.challenge should be(None)
+        _ <- transactionRequest.challenges should be(None)
         _ <- transactionRequest.details.description should be(description)
         _ <- transactionRequest.details.value.amount should be(amount.toString())
         _ <- transactionRequest.details.value.currency should be("EUR")

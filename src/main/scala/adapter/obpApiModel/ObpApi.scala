@@ -14,7 +14,7 @@ import com.openbankproject.commons.model._
 import com.typesafe.config.ConfigFactory
 import io.circe.generic.auto._
 import io.circe.syntax._
-import io.circe.{Decoder, Json, JsonObject, parser}
+import io.circe.{Decoder, Json, parser}
 import model.types.Bic
 
 import scala.collection.immutable.Seq
@@ -150,7 +150,7 @@ object ObpApi {
     } yield counterparty
 
   def createRefundTransactionRequest(bankId: BankId, accountId: AccountId, from: Option[TransactionRequestRefundFrom], to: Option[TransactionRequestRefundTo],
-                                    refundAmount: BigDecimal, refundDescription: String, originalObpTransactionId: TransactionId, reasonCode: String)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON210] = {
+                                    refundAmount: BigDecimal, refundDescription: String, originalObpTransactionId: TransactionId, reasonCode: String)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON400] = {
     val transactionRequestRefundBody = TransactionRequestBodyRefundJsonV400(
       to = to,
       from = from,
@@ -161,10 +161,10 @@ object ObpApi {
 
     callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/REFUND/transaction-requests",
       HttpMethods.POST, transactionRequestRefundBody.asJson.toString())
-      .flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
+      .flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON400].toTry))
   }
 
-  def createSepaTransactionRequest(bankId: BankId, accountId: AccountId, amount: BigDecimal, counterpartyIban: Iban, description: String)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON210] = {
+  def createSepaTransactionRequest(bankId: BankId, accountId: AccountId, amount: BigDecimal, counterpartyIban: Iban, description: String)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON400] = {
     val currentDate = LocalDate.now()
     val transactionRequestSepaBody = TransactionRequestBodySEPAJsonV400(
       value = AmountOfMoneyJsonV121(currency = "EUR", amount = amount.toString()),
@@ -177,7 +177,7 @@ object ObpApi {
 
     callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/SEPA/transaction-requests",
       HttpMethods.POST, transactionRequestSepaBody.asJson.toString())
-      .flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
+      .flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON400].toTry))
   }
 
   def getTransactionById(bankId: BankId, accountId: AccountId, transactionId: TransactionId)(implicit system: ActorSystem): Future[TransactionJsonV300] = {
@@ -200,9 +200,9 @@ object ObpApi {
     }
   }
 
-  def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, transactionRequestType: TransactionRequestType, transactionRequestId: TransactionRequestId, challengeAnswer: ChallengeAnswerJson400)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJson] = {
+  def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, transactionRequestType: TransactionRequestType, transactionRequestId: TransactionRequestId, challengeAnswer: ChallengeAnswerJson400)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON210] = {
     callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/${transactionRequestType.value}/transaction-requests/${transactionRequestId.value}/challenge",
-      HttpMethods.POST, challengeAnswer.asJson.toString()).flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJson].toTry))
+      HttpMethods.POST, challengeAnswer.asJson.toString()).flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
   }
 
   private def callObpApi(uri: String, httpMethod: HttpMethod, body: String = "")(implicit system: ActorSystem): Future[Json] = {

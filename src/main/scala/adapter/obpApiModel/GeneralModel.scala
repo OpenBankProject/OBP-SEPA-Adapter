@@ -17,7 +17,7 @@ trait TransactionRequestCommonBodyJSON {
   val description: String
 }
 
-case class TransactionRequestWithChargeJSON210(
+case class TransactionRequestWithChargeJSON400(
                                                 id: String,
                                                 `type`: String,
                                                 from: TransactionRequestAccountJsonV140,
@@ -26,7 +26,7 @@ case class TransactionRequestWithChargeJSON210(
                                                 status: String,
                                                 start_date: Date,
                                                 end_date: Date,
-                                                challenge: Option[ChallengeJsonV140],
+                                                challenges: Option[List[ChallengeJsonV400]],
                                                 charge: TransactionRequestChargeJsonV200
                                               )
 
@@ -39,6 +39,14 @@ case class ChallengeJsonV140(
                               id: String,
                               allowed_attempts: Int,
                               challenge_type: String
+                            )
+
+case class ChallengeJsonV400(
+                              id: String,
+                              user_id: String,
+                              allowed_attempts: Int,
+                              challenge_type: String,
+                              link: String
                             )
 
 case class TransactionRequestChargeJsonV200(

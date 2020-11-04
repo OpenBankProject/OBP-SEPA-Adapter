@@ -149,7 +149,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                     transactionRequestAfterChallenge <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, TransactionRequestType("REFUND"),
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")),
                       transactionRequestChallengeAnswer)
-                    createdObpTransactionId = TransactionId(transactionRequestAfterChallenge.transaction_ids)
+                    createdObpTransactionId = TransactionId(transactionRequestAfterChallenge.transaction_ids.head)
                   } yield (transactionMessageLink.obpTransactionRequestId, createdObpTransactionId))
                     .recoverWith {
                       case e: Exception =>
