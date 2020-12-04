@@ -205,6 +205,11 @@ object ObpApi {
       HttpMethods.POST, challengeAnswer.asJson.toString()).flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
   }
 
+  def getTransactionRequestAttributes(bankId: BankId, accountId: AccountId, transactionRequestId: TransactionRequestId)(implicit system: ActorSystem): Future[TransactionRequestAttributesResponseJson] = {
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/transaction-requests/${transactionRequestId.value}/attributes",
+      HttpMethods.GET).flatMap(json => Future.fromTry(json.as[TransactionRequestAttributesResponseJson].toTry))
+  }
+
   private def callObpApi(uri: String, httpMethod: HttpMethod, body: String = "")(implicit system: ActorSystem): Future[Json] = {
     implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(system))
     

@@ -1,6 +1,6 @@
 package adapter
 
-import java.time.{LocalDate, LocalDateTime, ZoneId, ZoneOffset}
+import java.time.{LocalDate, LocalDateTime}
 import java.util.{Date, UUID}
 
 import adapter.obpApiModel.{HistoricalTransactionAccountJsonV310, ObpApi}
@@ -9,8 +9,6 @@ import akka.cluster.Cluster
 import com.openbankproject.commons.dto._
 import com.openbankproject.commons.model._
 import com.openbankproject.commons.model.enums.TransactionRequestStatus
-import io.circe.generic.auto._
-import io.circe.syntax._
 import io.circe.{Json, JsonObject}
 import model.enums._
 import model.enums.sepaReasonCodes.PaymentRecallNegativeAnswerReasonCode.{apply => _, values => _, withName => _, _}
@@ -193,33 +191,33 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
         // In the case the transaction request type is "REFUND"
         case "REFUND" =>
-          // We parse the original OBP transaction Id from the description (Should be put in Transaction request attributes in the future)
-          val originalObpTransactionId = TransactionId(description.split(" - ").reverse(1).split(Array('(', ')'))(1))
+          // Here, we want to detect who of the debtor/creditor is the owner of an OBP Account
+          // TODO : We can use the sepa file direction to detect which account to request to the API
+          val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
+          val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
 
           val createdObpTransactionId = for {
+            // We want to identify the obp account
+            obpAccount <- ObpApi.getAccountByIban(Some(Adapter.BANK_ID), fromAccountIban.getOrElse(Iban("")))
+              .fallbackTo(ObpApi.getAccountByIban(Some(Adapter.BANK_ID), toAccountIban.getOrElse(Iban(""))))
+
+            // We get the transaction request attributes
+            transactionRequestAttributes <- ObpApi.getTransactionRequestAttributes(
+              BankId(obpAccount.bank_id), AccountId(obpAccount.id), transactionRequestId)
+
+            // We find the original obp transaction id in the transaction request attributes
+            originalObpTransactionId = TransactionId(transactionRequestAttributes.transaction_request_attributes.find(transactionRequestAttribute =>
+              transactionRequestAttribute.name == "original_transaction_id").map(_.value).getOrElse(""))
+
             // We retrieve the Adapter transaction from the obp original transaction Id
             originalTransaction <- SepaCreditTransferTransaction.getByObpTransactionId(originalObpTransactionId)
-            // We get the IBANs from the TransactionRequest and the original transaction to see if all is ok
-            transactionRequestValid = (for {
-              fromAccountIban <- fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
-              toAccountIban <- toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address))
-              originalTransactionDebtorIban <- originalTransaction.debtorAccount
-              originalTransactionCreditorIban <- originalTransaction.creditorAccount
-              // If all is ok, the following condition should be true, otherwise, one IBAN is not corresponding to the original transaction
-            } yield fromAccountIban == originalTransactionCreditorIban && toAccountIban == originalTransactionDebtorIban).getOrElse(false)
-            createdObpTransactionId <- if (transactionRequestValid) {
-              // Here, we want to detect who of the debtor/creditor is the owner of an OBP Account
-              // TODO : We can use the sepa file direction to detect which account to request to the API
-              val fromAccountIban = fromAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
-              val toAccountIban = toAccount.accountRoutings.find(_.scheme == "IBAN").map(a => Iban(a.address)).getOrElse(Iban(""))
-              // So one of the two following OBP request will fail and one will success (WARNING : this is not a good method to do this)
-              val accountFrom = ObpApi.getAccountByIban(Some(Adapter.BANK_ID), fromAccountIban)
-              val accountTo = ObpApi.getAccountByIban(Some(Adapter.BANK_ID), toAccountIban)
 
-              // In case the fromAccount is the OBP account owner and he want to refund the counterparty (SEPA Return message)
-              accountFrom.flatMap(obpAccountFrom => {
-                // We parse the return reason code from the description
-                val reasonCodeString = description.split(" - ").last.split(":").last.trim
+            // We compare the IBANs from the TransactionRequest and the original transaction to see if everything is ok
+            createdObpTransactionId <- if (fromAccountIban == originalTransaction.creditorAccount && toAccountIban == originalTransaction.debtorAccount) {
+              val obpAccountIban = obpAccount.account_routings.find(_.scheme == "IBAN").map(accountRouting => Iban(accountRouting.address))
+              if (obpAccountIban == fromAccountIban) {
+                val reasonCodeString = transactionRequestAttributes.transaction_request_attributes.find(transactionRequestAttribute =>
+                  transactionRequestAttribute.name == "refund_reason_code").map(_.value).getOrElse("")
                 val refundReasonCode: PaymentReturnReasonCode = reasonCodeString match {
                   // In case the transaction request refund reason code was a recall reason code, the return reason code is FOLLOWING_CANCELLATION_REQUEST
                   case reasonCode if values.map(_.toString).contains(reasonCode) => PaymentReturnReasonCode.FOLLOWING_CANCELLATION_REQUEST
@@ -229,10 +227,9 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
                 val debtor = HistoricalTransactionAccountJsonV310(
                   bank_id = Some(Adapter.BANK_ID.value),
-                  account_id = Some(obpAccountFrom.id),
+                  account_id = Some(obpAccount.id),
                   counterparty_id = None
                 )
-
                 for {
                   creditor <- ObpApi.getOrCreateCounterparty(
                     bankId = Adapter.BANK_ID,
@@ -262,14 +259,12 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                   _ <- PaymentReturnMessage.returnTransaction(
                     originalTransaction, originalTransaction.creditor.flatMap(_.name).orElse(originalTransaction.creditorAgent.map(_.bic)).getOrElse(""),
                     refundReasonCode, Some(transactionRequestId), Some(createdObpTransactionId))
+
                 } yield createdObpTransactionId
-
-                // In case the toAccount is the OBP account owner and the counterparty want to refund the account (SEPA Return message)
-              }).fallbackTo(accountTo.flatMap(obpAccountTo => { // Case where the counterparty refund the account
-
+              } else if (obpAccountIban == toAccountIban) {
                 val creditor = HistoricalTransactionAccountJsonV310(
                   bank_id = Some(Adapter.BANK_ID.value),
-                  account_id = Some(obpAccountTo.id),
+                  account_id = Some(obpAccount.id),
                   counterparty_id = None
                 )
 
@@ -298,9 +293,8 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
                   createdObpTransactionId = TransactionId(createdObpTransaction.transaction_id)
                 } yield createdObpTransactionId
-              }))
+              } else Future.failed(new Exception(s"The obpAccount Iban $obpAccountIban don't match with the fromAccountIban $fromAccountIban or the toAccountIban $toAccountIban"))
             } else Future.failed(new Exception(s"Transaction request invalid, counterparty_iban don't match with the original SEPA transaction ${originalTransaction.id} (OBP original transaction : ${originalObpTransactionId.value}). Maybe the errror is coming from the to/from field name"))
-
           } yield createdObpTransactionId
 
           // We then send the inBound message response to the OBP Connector with the created OBP TransactionId
