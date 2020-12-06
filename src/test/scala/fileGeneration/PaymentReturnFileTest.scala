@@ -1,3 +1,5 @@
+package fileGeneration
+
 import java.time.{LocalDate, LocalDateTime}
 
 import com.openbankproject.commons.model.Iban
@@ -80,17 +82,17 @@ case class PaymentReturnFileTest(
        |                </Dbtr>
        |                <DbtrAcct>
        |                    <Id>
-       |                        <IBAN>$originalDebtorIban</IBAN>
+       |                        <IBAN>${originalDebtorIban.iban}</IBAN>
        |                    </Id>
        |                </DbtrAcct>
        |                <DbtrAgt>
        |                    <FinInstnId>
-       |                        <BIC>$originalDebtorBic</BIC>
+       |                        <BIC>${originalDebtorBic.bic}</BIC>
        |                    </FinInstnId>
        |                </DbtrAgt>
        |                <CdtrAgt>
        |                    <FinInstnId>
-       |                        <BIC>$originalCreditorBic</BIC>
+       |                        <BIC>${originalCreditorBic.bic}</BIC>
        |                    </FinInstnId>
        |                </CdtrAgt>
        |                <Cdtr>
@@ -98,7 +100,7 @@ case class PaymentReturnFileTest(
        |                </Cdtr>
        |                <CdtrAcct>
        |                    <Id>
-       |                        <IBAN>$originalCreditorIban</IBAN>
+       |                        <IBAN>${originalCreditorIban.iban}</IBAN>
        |                    </Id>
        |                </CdtrAcct>
        |            </OrgnlTxRef>

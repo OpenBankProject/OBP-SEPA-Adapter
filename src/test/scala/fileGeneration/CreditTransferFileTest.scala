@@ -1,3 +1,5 @@
+package fileGeneration
+
 import java.time.{LocalDate, LocalDateTime}
 
 import com.openbankproject.commons.model.Iban

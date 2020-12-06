@@ -3,18 +3,21 @@ import java.util.UUID
 
 import adapter.obpApiModel.{AccountRoutingJsonV121, ChallengeAnswerJson400, ObpApi, TransactionRequestRefundFrom}
 import com.openbankproject.commons.model._
-import model.enums.sepaReasonCodes.PaymentReturnReasonCode
+import fileGeneration.{CreditTransferFileTest, PaymentReturnFileTest}
 import model.enums._
+import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.{SepaCreditTransferTransaction, SepaMessage, SepaTransactionMessage}
 import org.scalatest.featurespec.AsyncFeatureSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{GivenWhenThen, OptionValues}
 import sepa.SepaUtil
 import sepa.scheduler.{ProcessIncomingFilesActorSystem, ProcessOutgoingFiles}
+import util.{ObpAccountTest, ObpCounterpartyTest}
 
 import scala.concurrent.Future
 
 // TODO : test the outgoing file generation
+// TODO: Add tests related to the transaction request attributes original_transaction_id and refund_reason_code
 
 class PaymentReturnSpec extends AsyncFeatureSpec with GivenWhenThen with Matchers with OptionValues with AkkaActorSystemTest {
 

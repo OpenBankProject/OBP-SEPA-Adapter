@@ -1,3 +1,5 @@
+package util
+
 import com.openbankproject.commons.model.{AccountId, BankId, Iban}
 import model.types.Bic
 

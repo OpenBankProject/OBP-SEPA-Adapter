@@ -185,6 +185,12 @@ object ObpApi {
       HttpMethods.GET).flatMap(json => Future.fromTry(json.as[TransactionJsonV300].toTry))
   }
 
+  def getTransactionRequest(bankId: BankId, accountId: AccountId, transactionRequestId: TransactionRequestId)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON210] = {
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-requests/${transactionRequestId.value}",
+      HttpMethods.GET).flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
+  }
+
+  @deprecated
   def getTransactionRequestChallengeId(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId)(implicit system: ActorSystem): Future[String] = {
     val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-requests/${transactionRequestId.value}", HttpMethods.GET)
     callResult.flatMap {

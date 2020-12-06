@@ -4,6 +4,7 @@ import java.util.UUID
 import adapter.obpApiModel.{AccountRoutingJsonV121, ObpApi}
 import adapter.{Adapter, ObpAccountNotFoundException}
 import com.openbankproject.commons.model._
+import fileGeneration.CreditTransferFileTest
 import model.enums.sepaReasonCodes.PaymentReturnReasonCode
 import model.enums.{SepaCreditTransferTransactionCustomField, SepaCreditTransferTransactionStatus, SepaMessageType}
 import model.types.Bic
@@ -14,6 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{GivenWhenThen, OptionValues}
 import sepa.SepaUtil
 import sepa.scheduler.ProcessIncomingFilesActorSystem
+import util.{ObpAccountTest, ObpCounterpartyTest}
 
 import scala.concurrent.Future
 

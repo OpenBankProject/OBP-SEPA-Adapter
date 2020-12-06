@@ -36,9 +36,9 @@ case class TransactionRequestAccountJsonV140(
                                             )
 
 case class ChallengeJsonV140(
-                              id: String,
+                              id: Option[String],
                               allowed_attempts: Int,
-                              challenge_type: String
+                              challenge_type: Option[String]
                             )
 
 case class ChallengeJsonV400(
