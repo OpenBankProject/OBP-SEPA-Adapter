@@ -6,6 +6,7 @@ import java.time.{LocalDateTime, ZoneId, ZoneOffset}
 import adapter.obpApiModel._
 import adapter.{Adapter, ObpAccountNotFoundException}
 import akka.actor.{Actor, ActorLogging, ActorSystem}
+import com.openbankproject.commons.model.enums.TransactionRequestAttributeType
 import com.openbankproject.commons.model.{AccountId, AmountOfMoney, Iban, TransactionId, TransactionRequestId, TransactionRequestType}
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -107,7 +108,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             // we the update the message and the file status to PROCESSED
             _ <- creditTransferMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
-            _ <- Future(log.info(s"${integratedTransactions.length} integrated transactions from file ${sepaFile.name}"))
+            _ <- Future(log.info(s"${integratedTransactions.length} integrated transactions (CREDIT TRANSFER) from file ${sepaFile.name}"))
           } yield ()
 
         case Failure(exception) =>
@@ -173,6 +174,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             )
             _ <- paymentReturnMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+            _ <- Future(log.info(s"${validReturnedTransactions.length} integrated transactions (RETURN) from file ${sepaFile.name}"))
           } yield ()
         case Failure(exception) =>
           for {
@@ -199,6 +201,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
               }))
             _ <- paymentRejectMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+            _ <- Future(log.info(s"${validRejectedTransactions.length} integrated transactions (REJECT) from file ${sepaFile.name}"))
           } yield ()
 
         case Failure(exception) =>
@@ -257,6 +260,17 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                   reasonCode = reasonCode
                 )
                 transactionRequestId = TransactionRequestId(transactionRequest.id)
+
+                // we manually add the refund_additional_information transaction request attribute
+                _ <- ObpApi.createTransactionRequestAttribute(
+                  bankId = Adapter.BANK_ID,
+                  accountId = accountId,
+                  transactionRequestId = transactionRequestId,
+                  transactionRequestAttribute = TransactionRequestAttributeJsonV400("refund_additional_information",
+                    TransactionRequestAttributeType.STRING.toString(),
+                    refundDescription)
+                )
+
                 // we update the message link with the recall message by adding the transactionRequestId
                 _ <- transaction._1.updateMessageLink(paymentRecallMessage.message.id, transaction._2, Some(transactionRequestId), None)
               } yield ()
@@ -264,6 +278,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             // we finish by updating the recall message and file status
             _ <- paymentRecallMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+            _ <- Future(log.info(s"${validRecalledTransactions.length} integrated transactions (RECALL) from file ${sepaFile.name}"))
           } yield ()
         case Failure(exception) =>
           for {
@@ -316,10 +331,10 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                 _ <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, TransactionRequestType("REFUND"), recallTransactionRequestId, transactionRequestChallengeAnswer)
                 _ <- transaction._1.updateMessageLink(paymentRecallNegativeAnswerMessage.message.id, transaction._2, Some(recallTransactionRequestId), None)
               } yield ()
-            }
-            ))
+            }))
             _ <- paymentRecallNegativeAnswerMessage.message.copy(status = SepaMessageStatus.PROCESSED).update()
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
+            _ <- Future(log.info(s"${validRecallNegativeAnswerTransactions.length} integrated transactions (RECALL REJECT) from file ${sepaFile.name}"))
           } yield ()
 
         case Failure(exception) =>

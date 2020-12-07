@@ -13,3 +13,9 @@ case class TransactionRequestAttributeResponseJson(
                                                     `type`: String,
                                                     value: String
                                                   )
+
+case class TransactionRequestAttributeJsonV400(
+                                                name: String,
+                                                `type`: String,
+                                                value: String,
+                                              )

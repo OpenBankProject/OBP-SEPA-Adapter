@@ -525,13 +525,6 @@ class AkkaConnectorActor extends Actor with ActorLogging {
 
         // If the transaction request type is REFUND and the status is rejected
         case ("REFUND", TransactionRequestStatus.REJECTED) =>
-          // We parse the recall reject reason code from the description
-          val paymentRecallNegativeAnswerReasonCode: PaymentRecallNegativeAnswerReasonCode =
-            PaymentRecallNegativeAnswerReasonCode.withName(transactionRequest.body.description
-              .split(" - Refund reject reason code : ").last.split(" ").head)
-          // We parse the recall reject additional information from the description
-          val paymentRecallNegativeAnswerAditionalInformation = transactionRequest.body.description
-            .split(" - Refund reject additional information : ").lastOption
           (for {
             // we get the REFUND transaction Request
             originalCreditTransferTransaction <- SepaCreditTransferTransaction.getByObpTransactionRequestId(transactionRequest.id)
@@ -552,6 +545,12 @@ class AkkaConnectorActor extends Actor with ActorLogging {
               // a REJECT response to a received recall message, so in this case, we need to create the recallNegativeAnswer message
               case SepaFileType.SCT_IN =>
                 for {
+                  transactionRequestAttributes <- ObpApi.getTransactionRequestAttributes(fromAccount.bankId, fromAccount.accountId, transactionRequest.id)
+                  paymentRecallNegativeAnswerReasonCode = PaymentRecallNegativeAnswerReasonCode.withName(
+                    transactionRequestAttributes.transaction_request_attributes
+                    .find(_.name == "reject_reason_code").map(_.value).getOrElse(""))
+                  paymentRecallNegativeAnswerAdditionalInformation = transactionRequestAttributes.transaction_request_attributes
+                    .find(_.name == "reject_additional_information").map(_.value)
                   _ <- PaymentRecallNegativeAnswerMessage.sendRecallNegativeAnswer(
                     originalCreditTransferTransaction,
                     Seq(PaymentRecallNegativeAnswerMessage.ReasonInformation(
@@ -562,7 +561,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
                         case _ => originalCreditTransferTransaction.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic)
                       },
                       reasonCode = paymentRecallNegativeAnswerReasonCode,
-                      additionalInformation = paymentRecallNegativeAnswerAditionalInformation
+                      additionalInformation = paymentRecallNegativeAnswerAdditionalInformation
                     )),
                     Some(transactionRequest.id)
                   )
