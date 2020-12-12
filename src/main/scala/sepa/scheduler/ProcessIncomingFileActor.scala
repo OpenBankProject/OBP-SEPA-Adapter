@@ -1,15 +1,13 @@
 package sepa.scheduler
 
 
-import java.time.{LocalDateTime, ZoneId, ZoneOffset}
+import java.time.LocalDateTime
 
 import adapter.obpApiModel._
 import adapter.{Adapter, ObpAccountNotFoundException}
 import akka.actor.{Actor, ActorLogging, ActorSystem}
 import com.openbankproject.commons.model.enums.TransactionRequestAttributeType
-import com.openbankproject.commons.model.{AccountId, AmountOfMoney, Iban, TransactionId, TransactionRequestId, TransactionRequestType}
-import io.circe.generic.auto._
-import io.circe.syntax._
+import com.openbankproject.commons.model._
 import io.circe.{Json, JsonObject}
 import model.enums.SepaMessageType.{B2B_INQUIRY_CLAIM_NON_RECEIP_NEGATIVE_RESPONSE, B2B_INQUIRY_CLAIM_NON_RECEIP_POSITIVE_RESPONSE, B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_NEGATIVE_RESPONSE, B2B_INQUIRY_CLAIM_VALUE_DATE_CORRECTION_POSITIVE_RESPONSE}
 import model.enums._
@@ -24,16 +22,27 @@ import scala.util.{Failure, Success, Try}
 import scala.xml.Elem
 
 case class ProcessIncomingCreditTransferMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingPaymentReturnMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingPaymentRejectMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingPaymentRecallMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingPaymentRecallNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingInquiryClaimNonReceiptMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingInquiryClaimValueDateCorrectionMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingInquiryClaimNonReceiptPositiveAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingInquiryClaimNonReceiptNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingInquiryClaimValueDateCorrectionPositiveAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingInquiryClaimValueDateCorrectionNegativeAnswerMessage(xmlFile: Elem, sepaFile: SepaFile)
+
 case class ProcessIncomingRequestStatusUpdateMessage(xmlFile: Elem, sepaFile: SepaFile)
 
 class ProcessIncomingFileActor extends Actor with ActorLogging {
@@ -94,15 +103,15 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
 
               } yield ())
                 .recoverWith {
-                // if we don't find the account, we return the transaction to the originator
-                case e: ObpAccountNotFoundException =>
-                  log.error(e.getMessage)
-                  log.error(s"Credit transfer transaction ${transaction._1.id} returned")
-                  PaymentReturnMessage.returnTransaction(transaction._1, transaction._1.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic), PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
-                case e: Exception =>
-                  log.error(e.getMessage)
-                  transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFER_ERROR).update()
-              }
+                  // if we don't find the account, we return the transaction to the originator
+                  case e: ObpAccountNotFoundException =>
+                    log.error(e.getMessage)
+                    log.error(s"Credit transfer transaction ${transaction._1.id} returned")
+                    PaymentReturnMessage.returnTransaction(transaction._1, transaction._1.creditorAgent.map(_.bic).getOrElse(Adapter.BANK_BIC.bic), PaymentReturnReasonCode.INCORRECT_ACCOUNT_NUMBER)
+                  case e: Exception =>
+                    log.error(e.getMessage)
+                    transaction._1.copy(status = SepaCreditTransferTransactionStatus.TRANSFER_ERROR).update()
+                }
             }
             ))
             // we the update the message and the file status to PROCESSED
@@ -143,9 +152,9 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                     account <- ObpApi.getAccountByIban(Some(Adapter.BANK_ID), transaction._1.debtorAccount.getOrElse(Iban("")))
                     accountId = AccountId(account.id)
                     // we get the transaction Request challenge ID
-                    challengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID,
+                    transactionRequest <- ObpApi.getTransactionRequest(Adapter.BANK_ID, accountId,
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")))
-                    transactionRequestChallengeAnswer = ChallengeAnswerJson400(challengeId, "123")
+                    transactionRequestChallengeAnswer = ChallengeAnswerJson400(transactionRequest.challenge.id.getOrElse(""), "123")
                     // we answer the challenge with a positive response (Dummy answer `123`) and we get the created transactionId
                     transactionRequestAfterChallenge <- ObpApi.answerTransactionRequestChallenge(Adapter.BANK_ID, accountId, TransactionRequestType("REFUND"),
                       TransactionRequestId(transactionMessageLink.obpTransactionRequestId.map(_.toString).getOrElse("")),
@@ -290,7 +299,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
       PaymentRecallNegativeAnswerMessage.fromXML(xmlFile, sepaFile.id) match {
         // If we receive a recall negative answer message
         case Success(paymentRecallNegativeAnswerMessage) =>
-          for {
+          val result = for {
             // we save the message and get the original transaction
             validRecallNegativeAnswerTransactions <- preProcessSctMessageTransactions(paymentRecallNegativeAnswerMessage)
             _ <- Future.sequence(validRecallNegativeAnswerTransactions.map(_._1.copy(status = SepaCreditTransferTransactionStatus.RECALL_REJECTED).update()))
@@ -307,18 +316,18 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
                   case None => Future.failed(new Exception(s"Original sepa recall message linked with sepaCreditTransferTransactionId ${transaction._1.id} not found"))
                 }
                 // we get the transaction request id
-                recallTransactionRequestId = transactionRecallMessageLink.obpTransactionRequestId.orNull
+                recallTransactionRequestId = transactionRecallMessageLink.obpTransactionRequestId.get
                 // we get the account id by IBAN
                 account <- ObpApi.getAccountByIban(Some(Adapter.BANK_ID), transaction._1.debtorAccount.orNull)
                 accountId = AccountId(account.id)
                 // we get the transaction request challenge id
-                transactionRequestChallengeId <- ObpApi.getTransactionRequestChallengeId(Adapter.BANK_ID, accountId, Adapter.VIEW_ID, recallTransactionRequestId)
+                transactionRequest <- ObpApi.getTransactionRequest(Adapter.BANK_ID, accountId, recallTransactionRequestId)
                 recallRejectReasoninformation = transaction._1.customFields.flatMap(json =>
                   (json \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString)
                     .headOption.flatMap(_.asArray).flatMap(_.headOption))
                 // we create the answer transaction request (REJECT) body
                 transactionRequestChallengeAnswer = ChallengeAnswerJson400(
-                  id = transactionRequestChallengeId,
+                  id = transactionRequest.challenge.id.getOrElse(""),
                   answer = "REJECT",
                   reason_code = recallRejectReasoninformation.flatMap(j =>
                     (j \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_REASON_CODE.toString)
@@ -336,6 +345,7 @@ class ProcessIncomingFileActor extends Actor with ActorLogging {
             _ <- sepaFile.copy(status = SepaFileStatus.PROCESSED, processedDate = Some(LocalDateTime.now())).update()
             _ <- Future(log.info(s"${validRecallNegativeAnswerTransactions.length} integrated transactions (RECALL REJECT) from file ${sepaFile.name}"))
           } yield ()
+          result.recover { case e: Exception => log.error(e.getMessage) }
 
         case Failure(exception) =>
           for {

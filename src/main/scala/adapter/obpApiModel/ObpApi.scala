@@ -33,6 +33,8 @@ object ObpApi {
   val versionRoute = "/obp/v4.0.0"
   val endpointPrefix: String = hostName + versionRoute
 
+  val viewId = "owner"
+
   implicit val decodeDate: Decoder[Date] = Decoder.decodeString.map(dateString =>
     Date.from(Instant.parse(dateString))
   )
@@ -67,50 +69,41 @@ object ObpApi {
     )
 
     callObpApi(s"$endpointPrefix/management/accounts/account-routing-query", HttpMethods.POST, bankAccountRouting.asJson.toString())
-      .flatMap(json =>
-        json.as[ModeratedAccountJSON400].toTry match {
-          case Success(account) => Future.successful(account)
-          case Failure(_) =>
-            json.as[ObpApiError].toTry match {
-              case Success(error) =>
-                (error.code, error.message.split(":").headOption) match {
-                  case (404, Some("OBP-30073")) => Future.failed(new ObpAccountNotFoundException(error.message))
-                  case _ => Future.failed(new Exception(s"Unknown error in getObpAccountByIban: ${error.message}"))
-                }
-              case Failure(exception) =>
-                Future.failed(new Exception(s"Unknown error in getAccountByIban: $json"))
-            }
-        }
-      )
+      .flatMap(json => Future.fromTry(json.as[ModeratedAccountJSON400].toTry))
+      .recoverWith { case error: Exception =>
+        if (error.getMessage.contains("OBP-30073")) Future.failed(new ObpAccountNotFoundException(error.getMessage))
+        else Future.failed(error)
+      }
     }
 
   def getAccountByAccountId(bankId: BankId, accountId: AccountId)(implicit system: ActorSystem): Future[ModeratedAccountJSON400] = {
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/account", HttpMethods.GET)
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/account", HttpMethods.GET)
       .flatMap(json => Future.fromTry(json.as[ModeratedAccountJSON400].toTry))
   }
 
+  def getBank(bankId: BankId)(implicit system: ActorSystem): Future[BankJson400] = {
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}", HttpMethods.GET)
+      .flatMap(json => Future.fromTry(json.as[BankJson400].toTry))
+  }
+
   def getBicByBankId(bankId: BankId)(implicit system: ActorSystem): Future[Bic] = {
-    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}", HttpMethods.GET)
-    callResult.flatMap {
-      case jsonResult if (jsonResult \\ "bank_routings").headOption.flatMap(_.asArray)
-        .flatMap(_.find(bankRouting => (bankRouting \\ "scheme").headOption.flatMap(_.asString).contains("BIC"))).nonEmpty =>
-        Future.successful((jsonResult \\ "bank_routings").headOption.flatMap(_.asArray)
-          .flatMap(_.find(bankRouting => (bankRouting \\ "scheme").headOption.flatMap(_.asString).contains("BIC"))
-            .flatMap(bankBicRouting => (bankBicRouting \\ "address").headOption.flatMap(_.asString))).map(Bic).get)
-      case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
-        val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
-        val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)
-        (errorCode, errorMessage.flatMap(_.split(":").headOption)) match {
-          case (Some(404), Some("OBP-30001")) =>
-            Future.failed(new ObpBankNotFoundException(errorMessage.getOrElse("")))
-          case _ => Future.failed(new Exception(s"Unknow error in getBicByBankId: ${errorMessage.getOrElse("")}"))
-        }
-      case jsonResult => Future.failed(new Exception(s"Unknow error in getBicByBankId: $jsonResult"))
+    getBank(bankId).flatMap { bank =>
+      val maybeBic = for {
+        bicBankRouting <- bank.bank_routings.find(_.scheme.exists(_.contains("BIC")))
+        bicBank <- bicBankRouting.address.map(Bic)
+      } yield bicBank
+      maybeBic match {
+        case Some(bic) => Future.successful(bic)
+        case None => Future.failed(new Exception(s"Bic not found in the bank routings (${bank.bank_routings}"))
+      }
+    } recoverWith { case e: Exception =>
+      if (e.getMessage.contains("OBP-30001")) Future.failed(new ObpBankNotFoundException(e.getMessage))
+      else Future.failed(e)
     }
   }
 
   def getCounterpartyByIban(bankId: BankId, accountId: AccountId, iban: Iban)(implicit system: ActorSystem): Future[Option[CounterpartyJson400]] =
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/counterparties", HttpMethods.GET)
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/counterparties", HttpMethods.GET)
       .flatMap(json => Future.fromTry(json.as[CounterpartiesJson400].toTry))
       .map(counterparties =>
         counterparties.counterparties.find(counterparty =>
@@ -134,7 +127,7 @@ object ObpApi {
       bespoke = Nil
     )
     
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/counterparties",
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/counterparties",
       HttpMethods.POST, counterparty.asJson.toString())
       .flatMap(json => Future.fromTry(json.as[CounterpartyWithMetadataJson400].toTry))
   }
@@ -159,7 +152,7 @@ object ObpApi {
       refund = RefundJson(transaction_id = originalObpTransactionId.value, reason_code = reasonCode)
     )
 
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/REFUND/transaction-requests",
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/transaction-request-types/REFUND/transaction-requests",
       HttpMethods.POST, transactionRequestRefundBody.asJson.toString())
       .flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON400].toTry))
   }
@@ -175,39 +168,23 @@ object ObpApi {
       reasons = None
     )
 
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/SEPA/transaction-requests",
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/transaction-request-types/SEPA/transaction-requests",
       HttpMethods.POST, transactionRequestSepaBody.asJson.toString())
       .flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON400].toTry))
   }
 
   def getTransactionById(bankId: BankId, accountId: AccountId, transactionId: TransactionId)(implicit system: ActorSystem): Future[TransactionJsonV300] = {
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transactions/${transactionId.value}/transaction",
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/transactions/${transactionId.value}/transaction",
       HttpMethods.GET).flatMap(json => Future.fromTry(json.as[TransactionJsonV300].toTry))
   }
 
   def getTransactionRequest(bankId: BankId, accountId: AccountId, transactionRequestId: TransactionRequestId)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON210] = {
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-requests/${transactionRequestId.value}",
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/transaction-requests/${transactionRequestId.value}",
       HttpMethods.GET).flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
   }
 
-  @deprecated
-  def getTransactionRequestChallengeId(bankId: BankId, accountId: AccountId, viewId: ViewId, transactionRequestId: TransactionRequestId)(implicit system: ActorSystem): Future[String] = {
-    val callResult = callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/${viewId.value}/transaction-requests/${transactionRequestId.value}", HttpMethods.GET)
-    callResult.flatMap {
-      case jsonResult if (jsonResult \\ "challenge").headOption.flatMap(challenge => (challenge \\ "id").headOption.flatMap(_.asString)).isDefined =>
-        Future.successful((jsonResult \\ "challenge").headOption.flatMap(challenge => (challenge \\ "id").headOption.flatMap(_.asString)).get)
-      case jsonResult if (jsonResult \\ "code").nonEmpty && (jsonResult \\ "message").nonEmpty =>
-        val errorCode = (jsonResult \\ "code").headOption.flatMap(_.asNumber.flatMap(_.toInt))
-        val errorMessage = (jsonResult \\ "message").headOption.flatMap(_.asString)
-        (errorCode, errorMessage.flatMap(_.split(":").headOption)) match {
-          case _ => Future.failed(new Exception(s"Unknow error in getTransactionRequestChallengeId: ${errorMessage.getOrElse("")}"))
-        }
-      case jsonResult => Future.failed(new Exception(s"No challenge Id in this transaction request : $jsonResult"))
-    }
-  }
-
   def answerTransactionRequestChallenge(bankId: BankId, accountId: AccountId, transactionRequestType: TransactionRequestType, transactionRequestId: TransactionRequestId, challengeAnswer: ChallengeAnswerJson400)(implicit system: ActorSystem): Future[TransactionRequestWithChargeJSON210] = {
-    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/owner/transaction-request-types/${transactionRequestType.value}/transaction-requests/${transactionRequestId.value}/challenge",
+    callObpApi(s"$endpointPrefix/banks/${bankId.value}/accounts/${accountId.value}/$viewId/transaction-request-types/${transactionRequestType.value}/transaction-requests/${transactionRequestId.value}/challenge",
       HttpMethods.POST, challengeAnswer.asJson.toString()).flatMap(json => Future.fromTry(json.as[TransactionRequestWithChargeJSON210].toTry))
   }
 
@@ -233,8 +210,12 @@ object ObpApi {
       entity = HttpEntity(
         contentType = ContentTypes.`application/json`,
         body
-      ))
-    ).flatMap(_.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(body => body.utf8String).flatMap(response =>
-      Future.fromTry(parser.parse(response).toTry)))
+      )
+    )).flatMap(_.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(body => body.utf8String)
+      .flatMap(response => Future.fromTry(parser.parse(response).toTry)))
+      .flatMap(json => json.as[ObpApiError].toOption match {
+        case Some(obpApiError) => Future.failed(new Exception(obpApiError.message))
+        case None => Future.successful(json)
+      })
   }
 }

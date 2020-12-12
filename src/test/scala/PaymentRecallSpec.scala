@@ -4,7 +4,7 @@ import java.util.UUID
 import adapter.obpApiModel.{ChallengeAnswerJson400, ObpApi, TransactionRequestRefundTo}
 import com.openbankproject.commons.model._
 import com.openbankproject.commons.model.enums.TransactionRequestStatus
-import fileGeneration.{CreditTransferFileTest, PaymentRecallFileTest, PaymentReturnFileTest}
+import fileGeneration.{CreditTransferFileTest, PaymentRecallFileTest, PaymentRecallNegativeAnswerFileTest, PaymentReturnFileTest}
 import model.enums._
 import model.enums.sepaReasonCodes.{PaymentRecallNegativeAnswerReasonCode, PaymentRecallReasonCode, PaymentReturnReasonCode}
 import model.{SepaCreditTransferTransaction, SepaMessage, SepaTransactionMessage}
@@ -366,7 +366,118 @@ class PaymentRecallSpec extends AsyncFeatureSpec with GivenWhenThen with Matcher
       } yield succeed
     }
 
-    // TODO : Test the scenario "Recall a sent transaction and get a negative answer from the beneficiary"
+
+    Scenario("Recall a sent transaction and get a negative answer from the beneficiary") {
+      for {
+        _ <- Future(Given("an OBP account and an existing sent transaction"))
+        originalTransactionAmount = BigDecimal(49.56)
+        originalTransactionDescription = "This is the original transaction"
+        transactionRequest <- ObpApi.createSepaTransactionRequest(
+          bankId = ObpAccountTest.BANK_ID,
+          accountId = ObpAccountTest.ACCOUNT_ID,
+          amount = originalTransactionAmount,
+          counterpartyIban = ObpCounterpartyTest.IBAN,
+          description = originalTransactionDescription)
+        obpTransactionId = TransactionId(transactionRequest.transaction_ids.head)
+        obpTransaction <- ObpApi.getTransactionById(ObpAccountTest.BANK_ID, ObpAccountTest.ACCOUNT_ID, obpTransactionId)
+        _ <- Future(ProcessOutgoingFiles.main(Array()))
+        _ <- Future(Thread.sleep(3000))
+        originalSepaCreditTransferTransaction <- SepaCreditTransferTransaction.getByObpTransactionId(obpTransactionId)
+        _ <- originalSepaCreditTransferTransaction.status should be(SepaCreditTransferTransactionStatus.TRANSFERED)
+        originalSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(originalSepaCreditTransferTransaction.id)
+          .map(_.find(_.messageType == SepaMessageType.B2B_CREDIT_TRANSFER).value)
+        obpCounterparty <- ObpApi.getCounterpartyByIban(ObpAccountTest.BANK_ID, ObpAccountTest.ACCOUNT_ID, ObpCounterpartyTest.IBAN)
+
+        _ <- Future(When("we create a refund transaction request to recall the transaction"))
+        refundDescription = "Sorry, I made a mistake on the account number"
+        refundTransactionRequest <- ObpApi.createRefundTransactionRequest(
+          ObpAccountTest.BANK_ID,
+          ObpAccountTest.ACCOUNT_ID,
+          from = None,
+          to = Some(TransactionRequestRefundTo(None, None, Some(obpCounterparty.value.counterparty_id))),
+          originalTransactionAmount,
+          refundDescription = refundDescription,
+          obpTransactionId,
+          reasonCode = PaymentRecallReasonCode.INVALID_CREDITOR_ACCOUNT_NUMBER.toString)
+
+        _ <- Future(Then("a refund transaction request should be created on the OBP-API"))
+        _ <- refundTransactionRequest.transaction_ids should be(List(""))
+        _ <- refundTransactionRequest.details.description should include(refundDescription)
+        _ <- BigDecimal(refundTransactionRequest.details.value.amount) should be(originalTransactionAmount)
+        _ <- refundTransactionRequest.challenges.value should not be (List.empty)
+        _ <- refundTransactionRequest.status should be(TransactionRequestStatus.FORWARDED.toString)
+        refundTransactionRequestId = TransactionRequestId(refundTransactionRequest.id)
+        refundTransactionRequestAttributes <- ObpApi.getTransactionRequestAttributes(ObpAccountTest.BANK_ID, ObpAccountTest.ACCOUNT_ID, refundTransactionRequestId)
+        _ <- refundTransactionRequestAttributes.transaction_request_attributes.find(_.name == "original_transaction_id").value.value should be(obpTransactionId.value)
+        _ <- refundTransactionRequestAttributes.transaction_request_attributes.find(_.name == "refund_reason_code").value.value should be(PaymentRecallReasonCode.INVALID_CREDITOR_ACCOUNT_NUMBER.toString)
+
+        _ <- Future(And("a recall message should be created on the SEPA Adapter"))
+        _ <- Future(ProcessOutgoingFiles.main(Array()))
+        _ <- Future(Thread.sleep(3000))
+        updatedSepaCreditTransferTransaction <- SepaCreditTransferTransaction.getById(originalSepaCreditTransferTransaction.id)
+        _ <- updatedSepaCreditTransferTransaction.status should be(SepaCreditTransferTransactionStatus.RECALLED)
+        _ <- (updatedSepaCreditTransferTransaction.customFields.value \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString).head.asString.value should be(originalSepaMessage.messageIdInSepaFile)
+        _ <- (updatedSepaCreditTransferTransaction.customFields.value \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINAL_MESSAGE_TYPE.toString).head.asString.value should be(SepaMessageType.B2B_CREDIT_TRANSFER.toString)
+        _ <- (updatedSepaCreditTransferTransaction.customFields.value \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_ORIGINATOR.toString).head.asString.value should be(originalSepaCreditTransferTransaction.debtor.value.name.value)
+        _ <- (updatedSepaCreditTransferTransaction.customFields.value \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_REASON_CODE.toString).head.asString.value should be(PaymentRecallReasonCode.INVALID_CREDITOR_ACCOUNT_NUMBER.toString)
+        recallSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(updatedSepaCreditTransferTransaction.id)
+          .map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL).value)
+        recallTransactionMessage <- SepaTransactionMessage.getBySepaCreditTransferTransactionIdAndSepaMessageId(updatedSepaCreditTransferTransaction.id, recallSepaMessage.id)
+        _ <- recallTransactionMessage.obpTransactionId should be(None)
+        _ <- recallTransactionMessage.obpTransactionRequestId.value.value should be(refundTransactionRequest.id)
+
+        _ <- Future(When("we receive a negative answer from the beneficiary"))
+        paymentRecallNegativeAnswerFile = PaymentRecallNegativeAnswerFileTest(
+          messageIdInSepaFile = SepaUtil.removeDashesToUUID(UUID.randomUUID()),
+          originalTransactionAmount = originalSepaCreditTransferTransaction.amount,
+          currentDateTime = LocalDateTime.now(),
+          originalSettlementDate = originalSepaCreditTransferTransaction.settlementDate.value,
+          originalMessageIdInSepaFile = originalSepaMessage.messageIdInSepaFile,
+          paymentRecallNegativeAnswerIdInSepaFile = SepaUtil.removeDashesToUUID(UUID.randomUUID()),
+          originalEndToEndId = originalSepaCreditTransferTransaction.transactionIdInSepaFile,
+          originalTransactionIdInSepaFile = originalSepaCreditTransferTransaction.transactionIdInSepaFile,
+          paymentRecallNegativeAnswerOriginatorName = originalSepaCreditTransferTransaction.creditor.value.name.value,
+          paymentRecallNegativeAnswerReasonCode = PaymentRecallNegativeAnswerReasonCode.CUSTOMER_DECISION,
+          paymentRecallNegativeAnswerAdditionalInformation = "No, I don't want to send you back this money, that's your mistake",
+          originalDebtorName = originalSepaCreditTransferTransaction.debtor.value.name.value,
+          originalDebtorIban = originalSepaCreditTransferTransaction.debtorAccount.value,
+          originalDebtorBic = originalSepaCreditTransferTransaction.debtorAgent.value,
+          originalCreditorName = originalSepaCreditTransferTransaction.creditor.value.name.value,
+          originalCreditorIban = originalSepaCreditTransferTransaction.creditorAccount.value,
+          originalCreditorBic = originalSepaCreditTransferTransaction.creditorAgent.value,
+          originalTransactionDescription = originalSepaCreditTransferTransaction.description.getOrElse("")
+        )
+        filepath = paymentRecallNegativeAnswerFile.write()
+        _ <- Future(ProcessIncomingFilesActorSystem.main(Array(filepath.path)))
+        _ <- Future(Thread.sleep(3000))
+
+        _ <- Future(Then("a recall negative answer message should be created on the SEPA Adapter"))
+        updatedSepaCreditTransferTransaction <- SepaCreditTransferTransaction.getById(originalSepaCreditTransferTransaction.id)
+        _ <- (updatedSepaCreditTransferTransaction.customFields.value \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_ORIGINAL_MESSAGE_ID_IN_SEPA_FILE.toString).head.asString.value should be(originalSepaMessage.messageIdInSepaFile)
+        _ <- (updatedSepaCreditTransferTransaction.customFields.value \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_ORIGINAL_MESSAGE_TYPE.toString).head.asString.value should be(SepaMessageType.B2B_CREDIT_TRANSFER.toString)
+        recallNegativeAnswerReasonInformation = (updatedSepaCreditTransferTransaction.customFields.value \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION.toString).head.asArray.value.head
+        _ <- (recallNegativeAnswerReasonInformation \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_ORIGINATOR.toString).head.asString.value should be(paymentRecallNegativeAnswerFile.paymentRecallNegativeAnswerOriginatorName)
+        _ <- (recallNegativeAnswerReasonInformation \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_REASON_CODE.toString).head.asString.value should be(paymentRecallNegativeAnswerFile.paymentRecallNegativeAnswerReasonCode.toString)
+        _ <- (recallNegativeAnswerReasonInformation \\ SepaCreditTransferTransactionCustomField.PAYMENT_RECALL_NEGATIVE_ANSWER_REASON_INFORMATION_ADDITIONAL_INFORMATION.toString).head.asString.value should be(paymentRecallNegativeAnswerFile.paymentRecallNegativeAnswerAdditionalInformation)
+        recallNegativeAnswerSepaMessage <- SepaMessage.getBySepaCreditTransferTransactionId(updatedSepaCreditTransferTransaction.id)
+          .map(_.find(_.messageType == SepaMessageType.B2B_PAYMENT_RECALL_NEGATIVE_ANSWER).value)
+        recallNegativeAnswerTransactionMessage <- SepaTransactionMessage.getBySepaCreditTransferTransactionIdAndSepaMessageId(updatedSepaCreditTransferTransaction.id, recallNegativeAnswerSepaMessage.id)
+        _ <- Future(Console.println(recallNegativeAnswerTransactionMessage))
+        _ <- recallNegativeAnswerTransactionMessage.obpTransactionId should be (None)
+        _ <- recallNegativeAnswerTransactionMessage.obpTransactionRequestId.value.value should be(refundTransactionRequest.id)
+
+        _ <- Future(And("the refund transaction request should be updated on the OBP-API"))
+        updatedRefundTransactionRequest <- ObpApi.getTransactionRequest(ObpAccountTest.BANK_ID, ObpAccountTest.ACCOUNT_ID, refundTransactionRequestId)
+        _ <- updatedRefundTransactionRequest.status should be(TransactionRequestStatus.REJECTED.toString)
+        _ <- updatedRefundTransactionRequest.transaction_ids should be(List(""))
+        updatedRefundTransactionRequestAttributes <- ObpApi.getTransactionRequestAttributes(ObpAccountTest.BANK_ID, ObpAccountTest.ACCOUNT_ID, refundTransactionRequestId)
+        _ <- updatedRefundTransactionRequestAttributes.transaction_request_attributes.find(_.name == "original_transaction_id").value.value should be(obpTransactionId.value)
+        _ <- updatedRefundTransactionRequestAttributes.transaction_request_attributes.find(_.name == "refund_reason_code").value.value should be(PaymentRecallReasonCode.INVALID_CREDITOR_ACCOUNT_NUMBER.toString)
+        _ <- updatedRefundTransactionRequestAttributes.transaction_request_attributes.find(_.name == "reject_reason_code").value.value should be(paymentRecallNegativeAnswerFile.paymentRecallNegativeAnswerReasonCode.toString)
+        _ <- updatedRefundTransactionRequestAttributes.transaction_request_attributes.find(_.name == "reject_additional_information").value.value should be(paymentRecallNegativeAnswerFile.paymentRecallNegativeAnswerAdditionalInformation)
+
+      } yield succeed
+    }
 
   }
 

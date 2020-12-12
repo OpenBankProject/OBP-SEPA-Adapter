@@ -314,7 +314,7 @@ class AkkaConnectorActor extends Actor with ActorLogging {
           }
       }
 
-    // Case we receive a makePaymentv210 message
+    // Case we receive a makePaymentv400 message
     case OutBoundMakePaymentV400(callContext, transactionRequest, reasons) =>
       println("Make payment v400 message received")
 
